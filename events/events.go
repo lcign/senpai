@@ -36,6 +36,10 @@ type EventClickChannel struct {
 	Channel string
 }
 
+type EventClickTopic struct {
+	EventClick
+}
+
 type EventImageLoaded struct {
 	Image image.Image // nil if error
 }

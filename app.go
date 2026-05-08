@@ -659,6 +659,8 @@ func (app *App) handleUIEvent(ev interface{}) bool {
 		app.handleLinkEvent(ev)
 	case *events.EventClickChannel:
 		app.handleChannelEvent(ev)
+	case *events.EventClickTopic:
+		app.handleTopicEvent(ev)
 	case *events.EventImageLoaded:
 		app.win.ShowImage(ev.Image)
 		if ev.Image == nil {
@@ -1210,6 +1212,10 @@ func (app *App) handleChannelEvent(ev *events.EventClickChannel) {
 	if !app.win.JumpBufferNetwork(ev.NetID, ev.Channel) {
 		s.Join(ev.Channel, "")
 	}
+}
+
+func (app *App) handleTopicEvent(ev *events.EventClickTopic) {
+	app.win.ToggleTopicExpanded(ev.NetID, ev.Buffer)
 }
 
 var patternOpenGraphImage = regexp.MustCompile(`<meta property="og:image" content="(.*?)"/?>`)

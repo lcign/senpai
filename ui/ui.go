@@ -435,6 +435,10 @@ func (ui *UI) ToggleMemberList() {
 	ui.Resize()
 }
 
+func (ui *UI) ToggleTopicExpanded(netID, buffer string) {
+	ui.bs.ToggleTopicExpanded(netID, buffer)
+}
+
 func (ui *UI) ScrollMemberUpBy(n int) {
 	ui.memberOffset -= n
 	if ui.memberOffset < 0 {

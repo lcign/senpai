@@ -221,9 +221,10 @@ type buffer struct {
 	lines []Line
 	topic StyledString
 
-	scrollAmt   int // offset in lines from the bottom
-	topicOffset int // offset in clusters that are skipped when rendering topic text
-	isAtTop     bool
+	scrollAmt     int  // offset in lines from the bottom
+	topicOffset   int  // offset in clusters that are skipped when rendering topic text
+	topicExpanded bool // whether the topic is expanded to multiple lines
+	isAtTop       bool
 }
 
 type BufferList struct {
@@ -596,6 +597,14 @@ func (bs *BufferList) SetTopic(netID, title string, topic StyledString) {
 		return
 	}
 	b.topic = topic
+}
+
+func (bs *BufferList) ToggleTopicExpanded(netID, title string) {
+	_, b := bs.at(netID, title)
+	if b == nil {
+		return
+	}
+	b.topicExpanded = !b.topicExpanded
 }
 
 func (bs *BufferList) GetPinned(netID, title string) bool {
@@ -1084,9 +1093,188 @@ func (bs *BufferList) DrawHorizontalBufferList(vx *Vaxis, x0, y0, width int, off
 	}
 }
 
+func (bs *BufferList) drawTopicLine(vx *Vaxis, x0 int, y0 int, topic StyledString, topicOffset int, ui *UI, netID, buffer string) {
+	xTopic := x0
+	var st vaxis.Style
+	nextStyles := topic.styles
+
+	sr := []rune(topic.string)
+	ri := 0
+	for i := 0; i < topicOffset; i++ {
+		s, _ := firstCluster(vx, sr[ri:])
+		ri += len([]rune(s))
+	}
+	i := len(string(sr[:ri]))
+	sr = sr[ri:]
+
+	// Track the start position for click events
+	lineStartX := xTopic
+
+	for len(sr) > 0 {
+		if 0 < len(nextStyles) && nextStyles[0].Start == i {
+			st = nextStyles[0].Style
+			nextStyles = nextStyles[1:]
+
+			if (bs.ui.mouseLinks || st.Hyperlink == "") && st.HyperlinkParams != "" && st.UnderlineStyle == 0 {
+				st.UnderlineStyle = vaxis.UnderlineDotted
+			}
+		}
+		dx, di := printCluster(vx, xTopic, y0, -1, sr, st)
+		xTopic += dx
+		i += len(string(sr[:di]))
+		sr = sr[di:]
+
+		if st.Hyperlink != "" {
+			ui.clickEvents = append(ui.clickEvents, clickEvent{
+				xb: xTopic - dx,
+				xe: xTopic,
+				y:  y0,
+				event: &events.EventClickLink{
+					EventClick: events.EventClick{
+						NetID:  netID,
+						Buffer: buffer,
+					},
+					Link:  st.Hyperlink,
+					Mouse: ui.mouseLinks,
+				},
+			})
+		} else if _, channel, ok := strings.Cut(st.HyperlinkParams, "="); ok {
+			ui.clickEvents = append(ui.clickEvents, clickEvent{
+				xb: xTopic - dx,
+				xe: xTopic,
+				y:  y0,
+				event: &events.EventClickChannel{
+					EventClick: events.EventClick{
+						NetID:  netID,
+						Buffer: buffer,
+					},
+					Channel: channel,
+				},
+			})
+		}
+	}
+
+	// Add click event for the entire topic line to toggle expansion
+	ui.clickEvents = append(ui.clickEvents, clickEvent{
+		xb: lineStartX,
+		xe: xTopic,
+		y:  y0,
+		event: &events.EventClickTopic{
+			EventClick: events.EventClick{
+				NetID:  netID,
+				Buffer: buffer,
+			},
+		},
+	})
+}
+
+func (bs *BufferList) calculateWrappedTopicHeight(topic StyledString, maxWidth int, vx *Vaxis) int {
+	words := strings.Fields(topic.string)
+	if len(words) == 0 {
+		return 1
+	}
+
+	height := 1
+	currentLine := ""
+
+	for _, word := range words {
+		// Check if adding this word would exceed the line width
+		testLine := currentLine
+		if testLine != "" {
+			testLine += " "
+		}
+		testLine += word
+
+		if stringWidth(vx, testLine) <= maxWidth {
+			currentLine = testLine
+		} else {
+			// Start new line
+			if currentLine != "" {
+				height++
+			}
+			currentLine = word
+		}
+	}
+
+	return height
+}
+
+func (bs *BufferList) drawWrappedTopic(vx *Vaxis, x0 int, y0 int, topic StyledString, maxWidth int, ui *UI, netID, buffer string) int {
+	words := strings.Fields(topic.string)
+	if len(words) == 0 {
+		return y0 + 1
+	}
+
+	currentLine := ""
+	currentY := y0
+
+	for _, word := range words {
+		// Check if adding this word would exceed the line width
+		testLine := currentLine
+		if testLine != "" {
+			testLine += " "
+		}
+		testLine += word
+
+		if stringWidth(vx, testLine) <= maxWidth {
+			currentLine = testLine
+		} else {
+			// Draw current line if it's not empty
+			if currentLine != "" {
+				lineStyled := bs.createStyledStringForLine(topic, currentLine)
+				bs.drawTopicLine(vx, x0, currentY, lineStyled, 0, ui, netID, buffer)
+				currentY++
+			}
+			currentLine = word
+		}
+	}
+
+	// Draw the last line
+	if currentLine != "" {
+		lineStyled := bs.createStyledStringForLine(topic, currentLine)
+		bs.drawTopicLine(vx, x0, currentY, lineStyled, 0, ui, netID, buffer)
+		currentY++
+	}
+
+	return currentY
+}
+
+func (bs *BufferList) createStyledStringForLine(fullTopic StyledString, lineText string) StyledString {
+	// Find the position of this line in the full topic
+	lineStart := strings.Index(fullTopic.string, lineText)
+	if lineStart == -1 {
+		return StyledString{string: lineText, styles: []rangedStyle{{Start: 0, Style: vaxis.Style{}}}}
+	}
+
+	// Copy relevant styles for this line
+	var lineStyles []rangedStyle
+	lineEnd := lineStart + len(lineText)
+
+	for _, rs := range fullTopic.styles {
+		if rs.Start >= lineStart && rs.Start < lineEnd {
+			// Style starts within this line
+			lineStyles = append(lineStyles, rangedStyle{
+				Start: rs.Start - lineStart,
+				Style: rs.Style,
+			})
+		} else if rs.Start < lineStart && rs.Start+len([]byte(fullTopic.string[rs.Start:])) > lineStart {
+			// Style spans into this line
+			lineStyles = append(lineStyles, rangedStyle{
+				Start: 0,
+				Style: rs.Style,
+			})
+		}
+	}
+
+	if len(lineStyles) == 0 {
+		lineStyles = []rangedStyle{{Start: 0, Style: vaxis.Style{}}}
+	}
+
+	return StyledString{string: lineText, styles: lineStyles}
+}
+
 func (bs *BufferList) DrawTimeline(ui *UI, x0, y0, nickColWidth int) {
 	vx := ui.vx
-	clearArea(vx, x0, y0, bs.tlInnerWidth+nickColWidth+9, bs.tlHeight+2)
 
 	b := bs.cur()
 	if !b.openedOnce {
@@ -1095,6 +1283,16 @@ func (bs *BufferList) DrawTimeline(ui *UI, x0, y0, nickColWidth int) {
 			b.lines[i].Body = b.lines[i].Body.ParseURLs()
 		}
 	}
+
+	// Calculate topic height
+	topicHeight := 1 // Default single line
+	if b.topicExpanded {
+		topicWidth := bs.tlInnerWidth + nickColWidth + 9 - 16
+		topicHeight = bs.calculateWrappedTopicHeight(b.topic, topicWidth, vx)
+	}
+
+	// Clear area with correct height
+	clearArea(vx, x0, y0, bs.tlInnerWidth+nickColWidth+9, bs.tlHeight+topicHeight+2)
 
 	for b.topicOffset > 0 {
 		sr := []rune(b.topic.string)
@@ -1114,66 +1312,17 @@ func (bs *BufferList) DrawTimeline(ui *UI, x0, y0, nickColWidth int) {
 		}
 	}
 
-	xTopic := x0
-	{
-		// TODO: factorize this (same code for drawing timeline)
-
-		var st vaxis.Style
-		nextStyles := b.topic.styles
-
-		sr := []rune(b.topic.string)
-		ri := 0
-		for i := 0; i < b.topicOffset; i++ {
-			s, _ := firstCluster(bs.ui.vx, sr[ri:])
-			ri += len([]rune(s))
-		}
-		i := len(string(sr[:ri]))
-		sr = sr[ri:]
-		for len(sr) > 0 {
-			if 0 < len(nextStyles) && nextStyles[0].Start == i {
-				st = nextStyles[0].Style
-				nextStyles = nextStyles[1:]
-
-				if (bs.ui.mouseLinks || st.Hyperlink == "") && st.HyperlinkParams != "" && st.UnderlineStyle == 0 {
-					st.UnderlineStyle = vaxis.UnderlineDotted
-				}
-			}
-			dx, di := printCluster(vx, xTopic, y0, -1, sr, st)
-			xTopic += dx
-			i += len(string(sr[:di]))
-			sr = sr[di:]
-
-			if st.Hyperlink != "" {
-				ui.clickEvents = append(ui.clickEvents, clickEvent{
-					xb: xTopic - dx,
-					xe: xTopic,
-					y:  y0,
-					event: &events.EventClickLink{
-						EventClick: events.EventClick{
-							NetID:  b.netID,
-							Buffer: b.title,
-						},
-						Link:  st.Hyperlink,
-						Mouse: ui.mouseLinks,
-					},
-				})
-			} else if _, channel, ok := strings.Cut(st.HyperlinkParams, "="); ok {
-				ui.clickEvents = append(ui.clickEvents, clickEvent{
-					xb: xTopic - dx,
-					xe: xTopic,
-					y:  y0,
-					event: &events.EventClickChannel{
-						EventClick: events.EventClick{
-							NetID:  b.netID,
-							Buffer: b.title,
-						},
-						Channel: channel,
-					},
-				})
-			}
-		}
+	// Draw topic - either on one line or wrapped if expanded
+	topicWidth := bs.tlInnerWidth + nickColWidth + 9 - 16
+	if !b.topicExpanded {
+		// Topic on single line with horizontal scrolling
+		bs.drawTopicLine(vx, x0, y0, b.topic, b.topicOffset, ui, b.netID, b.title)
+		y0++
+	} else {
+		// Topic expanded - wrap to multiple lines
+		y0 = bs.drawWrappedTopic(vx, x0, y0, b.topic, topicWidth, ui, b.netID, b.title)
 	}
-	y0++
+
 	bs.ui.drawHorizontalLine(vx, x0, y0, bs.tlInnerWidth+nickColWidth+9)
 	y0++
 
