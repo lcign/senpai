@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"regexp"
 	"runtime/debug"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -1949,18 +1950,44 @@ func (app *App) handleIRCEvent(netID string, ev interface{}) {
 		})
 		app.win.InputSet(fmt.Sprintf("/bouncer network create -addr %q", host))
 	case irc.ListEvent:
+
+		// Sort by most active channela by users - latest is the most active
+		sort.Slice(ev, func(i, j int) bool {
+			ci, _ := strconv.Atoi(ev[i].Count)
+			cj, _ := strconv.Atoi(ev[j].Count)
+			return ci < cj
+		})
+
 		for _, item := range ev {
-			text := fmt.Sprintf("There are %4s users on channel %s", item.Count, item.Channel)
-			if item.Topic != "" {
-				text += " -- " + item.Topic
+			var numUsers int
+			var base string
+			if n, err := strconv.Atoi(item.Count); err == nil {
+				numUsers = n
+			} else {
+				numUsers = 0
 			}
+			if numUsers > 1 {
+				base = fmt.Sprintf("→ %s - %s users", item.Channel, item.Count)
+			} else {
+				base = fmt.Sprintf("→ %s - %s user", item.Channel, item.Count)
+			}
+
 			app.addStatusLine(netID, ui.Line{
 				At:   msg.TimeOrNow(),
-				Head: ui.ColorString("List --", app.cfg.Colors.Status),
-				Body: ui.Styled(text, vaxis.Style{
+				Head: ui.ColorString("", app.cfg.Colors.Status),
+				Body: ui.Styled(base, vaxis.Style{
 					Foreground: app.cfg.Colors.Status,
 				}),
 			})
+
+			if item.Topic != "" {
+				app.addStatusLine(netID, ui.Line{
+					At: msg.TimeOrNow(),
+					Body: ui.Styled(item.Topic, vaxis.Style{
+						Foreground: app.cfg.Colors.Status,
+					}),
+				})
+			}
 		}
 	case irc.InfoEvent:
 		var head string
