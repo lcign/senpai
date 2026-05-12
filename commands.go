@@ -1,9 +1,13 @@
 package senpai
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -86,6 +90,13 @@ func init() {
 			AllowHome: true,
 			Desc:      "take and upload a screenshot to the bouncer",
 			Handle:    commandDoScreenshot,
+		},
+		"X0": {
+			AllowHome: true,
+			MaxArgs:   1,
+			Usage:     "[file path]",
+			Desc:      "upload a file to x0.at or upload clipboard content if no path is given",
+			Handle:    commandDoX0,
 		},
 		"MSG": {
 			AllowHome: true,
@@ -560,6 +571,109 @@ func commandDoScreenshot(app *App, args []string) (err error) {
 		return fmt.Errorf("usage of SCREENSHOT is disabled")
 	}
 	return ui.Screenshot()
+}
+
+func commandDoX0(app *App, args []string) (err error) {
+	if app.cfg.Transient || !app.cfg.LocalIntegrations {
+		return fmt.Errorf("usage of X0 is disabled")
+	}
+
+	var fileData []byte
+	var filename string
+
+	if len(args) == 0 {
+		// Upload from clipboard
+		rc, _, err := readClipboard()
+		if err != nil {
+			return err
+		}
+		defer rc.Close()
+		fileData, err = io.ReadAll(rc)
+		if err != nil {
+			return fmt.Errorf("reading clipboard: %v", err)
+		}
+		filename = "clipboard"
+	} else {
+		// Upload from file
+		path := strings.TrimSpace(args[0])
+		if len(path) >= 2 {
+			if (path[0] == '"' && path[len(path)-1] == '"') ||
+				(path[0] == '\'' && path[len(path)-1] == '\'') {
+				path = path[1 : len(path)-1]
+			}
+		}
+		path = strings.ReplaceAll(path, `\ `, " ")
+		if home, err := os.UserHomeDir(); err == nil && !filepath.IsAbs(path) {
+			path = filepath.Join(home, path)
+		}
+
+		fileData, err = os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("reading file: %v", err)
+		}
+		filename = filepath.Base(path)
+	}
+
+	// Create multipart form data
+	buf := &bytes.Buffer{}
+	mw := multipart.NewWriter(buf)
+	fw, err := mw.CreateFormFile("file", filename)
+	if err != nil {
+		return fmt.Errorf("creating form file: %v", err)
+	}
+	_, err = fw.Write(fileData)
+	if err != nil {
+		return fmt.Errorf("writing file to form: %v", err)
+	}
+	mw.Close()
+
+	// Create and send HTTP request
+	req, err := http.NewRequest("POST", "https://x0.at/", buf)
+	if err != nil {
+		return fmt.Errorf("creating request: %v", err)
+	}
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("uploading to x0.at: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("x0.at returned status %d", resp.StatusCode)
+	}
+
+	// Read response (the URL returned by x0.at)
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("reading response: %v", err)
+	}
+
+	link := strings.TrimSpace(string(respBody))
+
+	// Send the link to the current channel
+	netID, buffer := app.win.CurrentBuffer()
+	s := app.sessions[netID]
+	if s == nil {
+		return errOffline
+	}
+
+	s.PrivMsg(buffer, link)
+	if !s.HasCapability("echo-message") {
+		buffer, line := app.formatMessage(s, irc.MessageEvent{
+			User:            s.Nick(),
+			Target:          buffer,
+			TargetIsChannel: s.IsChannel(buffer),
+			Command:         "PRIVMSG",
+			Content:         link,
+			Time:            time.Now(),
+		})
+		app.win.AddLine(netID, buffer, line)
+	}
+
+	return nil
 }
 
 func commandDoMsg(app *App, args []string) (err error) {
