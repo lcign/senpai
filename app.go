@@ -1857,14 +1857,17 @@ func (app *App) handleIRCEvent(netID string, ev interface{}) {
 		if !boundsNew.IsZero() {
 			app.messageBounds[bk] = boundsNew
 		}
-		if len(ev.Messages) < 10 {
-			// We're getting a non-full page: mark as complete to avoid indefinitely fetching the history.
-			// This should ideally be equal to the CHATHISTORY LIMIT, but it can be non advertised, or
-			// a full page could sometimes be less than a limit (because it could be filtered).
-			// It is also not zero, because bounds are inclusive, and not one, because we truncate based on
-			// the second of the message (because some bouncers have a second-level resolution).
-			// Be safe and pick 10 messages: less messages means that this was not a full page and we are done
-			// with fetching the backlog.
+		if len(ev.Messages) < 10 || ev.End {
+			// We're getting a non-full page, or the server told us via the draft/chathistory-end tag
+			// that this is the end of available history: mark as complete to avoid indefinitely
+			// fetching the history.
+			// The < 10 heuristic remains for servers that don't yet emit the tag. It should ideally
+			// be equal to the CHATHISTORY LIMIT, but it can be non advertised, or a full page could
+			// sometimes be less than a limit (because it could be filtered). It is also not zero,
+			// because bounds are inclusive, and not one, because we truncate based on the second of
+			// the message (because some bouncers have a second-level resolution). Be safe and pick
+			// 10 messages: less messages means that this was not a full page and we are done with
+			// fetching the backlog.
 			b := app.messageBounds[bk]
 			b.complete = true
 			app.messageBounds[bk] = b

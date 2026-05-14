@@ -104,6 +104,7 @@ type ListEvent []ListItem
 type HistoryEvent struct {
 	Target   string
 	Messages []Event
+	End      bool
 }
 
 type HistoryTargetsEvent struct {

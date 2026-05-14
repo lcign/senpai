@@ -1460,7 +1460,8 @@ func (s *Session) handleMessageRegistered(msg Message, playback bool) (Event, er
 					return nil, err
 				}
 
-				s.chBatches[id] = HistoryEvent{Target: target}
+				_, end := msg.Tags["draft/chathistory-end"]
+				s.chBatches[id] = HistoryEvent{Target: target, End: end}
 			case "draft/chathistory-targets":
 				s.targetsBatchID = id
 				s.targetsBatch = HistoryTargetsEvent{Targets: make(map[string]time.Time)}
