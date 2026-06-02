@@ -28,6 +28,7 @@ Your nick will be set to your SSH username.
 ## Installing
 
 - From your system package repositories: [`senpai`](https://repology.org/project/senpai-irc/versions)
+- Windows binary: [senpai-0.5.0.exe](https://git.sr.ht/~delthas/senpai/refs/download/v0.5.0/senpai-0.5.0.exe)
 - From source (requires Go):
 ```shell
 git clone https://git.sr.ht/~delthas/senpai
