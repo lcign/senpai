@@ -7,6 +7,7 @@ INSTALL ?= install
 SCDOC ?= scdoc
 GIT ?= git
 GOFLAGS ?=
+VERSION ?=
 PREFIX ?= /usr/local
 BINDIR ?= bin
 MANDIR ?= share/man
@@ -20,7 +21,7 @@ endif
 all: senpai doc
 
 senpai:
-	$(GO) build $(GOFLAGS) ./cmd/senpai
+	$(GO) build $(GOFLAGS) -ldflags "-X git.sr.ht/~delthas/senpai.version=$(VERSION)" ./cmd/senpai
 
 ifeq (, $(shell which $(SCDOC) 2>/dev/null))
 $(warning "$(SCDOC) not found, skipping building documentation")
