@@ -646,6 +646,11 @@ func (ui *UI) ExtendEditorDrag(x int) {
 	ui.e.ExtendDragAt(x, x0)
 }
 
+// EditorDragging reports whether an editor drag selection is in progress.
+func (ui *UI) EditorDragging() bool {
+	return ui.editorDragging
+}
+
 // StopEditorDrag ends a drag selection.
 func (ui *UI) StopEditorDrag() {
 	ui.editorDragging = false
