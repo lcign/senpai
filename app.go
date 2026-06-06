@@ -1133,6 +1133,7 @@ var defaultCommands = map[string][]string{
 	"Control+j":       {"send"},
 	"KP_Enter":        {"send"},
 	"Alt+s":           {"copy-mode"},
+	"F9":              {"copy-mode"},
 	"Alt+a":           {"buffer-next-unread"},
 	"Alt+n":           {"scroll-next-highlight"},
 	"Alt+p":           {"scroll-previous-highlight"},
