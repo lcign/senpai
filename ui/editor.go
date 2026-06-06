@@ -76,6 +76,9 @@ type Editor struct {
 	oldestTextChange int
 
 	typos []events.TypoRange
+
+	// selAnchor is the cluster index of the drag-selection anchor; -1 means no active selection.
+	selAnchor int
 }
 
 // NewEditor returns a new Editor.
@@ -86,6 +89,7 @@ func NewEditor(ui *UI) Editor {
 		text:      []editorLine{newEditorLine()},
 		history:   []editorLine{},
 		textWidth: []int{0},
+		selAnchor: -1,
 	}
 }
 
@@ -438,9 +442,33 @@ func (e *Editor) LeftWord() {
 	e.backsearchEnd()
 }
 
-// ClickAt moves the cursor to the grapheme cluster at the given screen column.
-// x0 is the screen column where the editor text area starts.
+// ClickAt moves the cursor to the grapheme cluster at the given screen column
+// and clears any active selection. x0 is the column where the editor starts.
 func (e *Editor) ClickAt(screenX, x0 int) {
+	e.clusterAtX(screenX, x0)
+	e.selAnchor = -1
+	e.autoCache = nil
+	e.backsearchEnd()
+}
+
+// StartDragAt sets the selection anchor at screenX and begins a drag selection.
+func (e *Editor) StartDragAt(screenX, x0 int) {
+	e.clusterAtX(screenX, x0)
+	e.selAnchor = e.cursorIdx
+	e.autoCache = nil
+	e.backsearchEnd()
+}
+
+// ExtendDragAt extends the selection to screenX, keeping the anchor fixed.
+func (e *Editor) ExtendDragAt(screenX, x0 int) {
+	if e.selAnchor < 0 {
+		return
+	}
+	e.clusterAtX(screenX, x0)
+}
+
+// clusterAtX sets cursorIdx to the cluster at the given screen column.
+func (e *Editor) clusterAtX(screenX, x0 int) {
 	relX := screenX - x0
 	if relX < 0 {
 		relX = 0
@@ -454,8 +482,19 @@ func (e *Editor) ClickAt(screenX, x0 int) {
 			break
 		}
 	}
-	e.autoCache = nil
-	e.backsearchEnd()
+}
+
+// selectionRange returns the rune-index range of the active selection, if any.
+func (e *Editor) selectionRange() (startRune, endRune int, ok bool) {
+	if e.selAnchor < 0 || e.selAnchor == e.cursorIdx {
+		return 0, 0, false
+	}
+	clusters := e.text[e.lineIdx].clusters
+	a, b := e.selAnchor, e.cursorIdx
+	if a > b {
+		a, b = b, a
+	}
+	return clusters[a], clusters[b], true
 }
 
 func (e *Editor) Home() {
@@ -634,9 +673,13 @@ func (e *Editor) Draw(vx *Vaxis, x0, y int, hint string) {
 	}
 
 	ci := e.text[e.lineIdx].clusters[e.cursorIdx]
+	selStart, selEnd, hasSel := e.selectionRange()
 	for i < len(text) {
 		r := text[i:]
 		s := st
+		if hasSel && i >= selStart && i < selEnd {
+			s.Attribute |= vaxis.AttrReverse
+		}
 		if e.backsearch && i < ci && i >= ci-len(e.backsearchPattern) {
 			s.UnderlineStyle = vaxis.UnderlineSingle
 		}

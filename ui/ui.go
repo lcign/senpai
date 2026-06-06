@@ -97,6 +97,9 @@ type UI struct {
 
 	mouseLinks bool
 
+	editorDragging  bool
+	leftButtonHeld  bool
+
 	colorThemeMode vaxis.ColorThemeMode
 }
 
@@ -606,22 +609,66 @@ func (ui *UI) SetPrompt(prompt StyledString) {
 	ui.prompt = prompt
 }
 
+func (ui *UI) editorX0() int {
+	if ui.channelWidth == 0 {
+		return 9 + ui.config.NickColWidth
+	}
+	return 9 + ui.channelWidth + ui.config.NickColWidth
+}
+
+func (ui *UI) editorRow() int {
+	_, h := ui.vx.window.Size()
+	if ui.channelWidth == 0 {
+		return h - 2
+	}
+	return h - 1
+}
+
+// StartEditorDragAt begins a drag selection on the editor row. Returns true if the click hit the editor.
+func (ui *UI) StartEditorDragAt(x, y int) bool {
+	if y != ui.editorRow() || x < ui.editorX0() {
+		return false
+	}
+	ui.e.StartDragAt(x, ui.editorX0())
+	ui.editorDragging = true
+	return true
+}
+
+// ExtendEditorDrag extends the drag selection to x while the button is held.
+func (ui *UI) ExtendEditorDrag(x int) {
+	if !ui.editorDragging {
+		return
+	}
+	x0 := ui.editorX0()
+	if x < x0 {
+		x = x0
+	}
+	ui.e.ExtendDragAt(x, x0)
+}
+
+// StopEditorDrag ends a drag selection.
+func (ui *UI) StopEditorDrag() {
+	ui.editorDragging = false
+	ui.leftButtonHeld = false
+}
+
+// SetLeftButtonHeld tracks whether the left mouse button is currently pressed.
+func (ui *UI) SetLeftButtonHeld(held bool) {
+	ui.leftButtonHeld = held
+}
+
+// LeftButtonHeld reports whether the left mouse button is currently pressed.
+func (ui *UI) LeftButtonHeld() bool {
+	return ui.leftButtonHeld
+}
+
 // ClickEditorAt moves the input cursor to the click position if y is the editor row.
 // Returns true if the click was on the editor line.
 func (ui *UI) ClickEditorAt(x, y int) bool {
-	_, h := ui.vx.window.Size()
-	var editorRow, x0 int
-	if ui.channelWidth == 0 {
-		editorRow = h - 2
-		x0 = 9 + ui.config.NickColWidth
-	} else {
-		editorRow = h - 1
-		x0 = 9 + ui.channelWidth + ui.config.NickColWidth
-	}
-	if y != editorRow || x < x0 {
+	if y != ui.editorRow() || x < ui.editorX0() {
 		return false
 	}
-	ui.e.ClickAt(x, x0)
+	ui.e.ClickAt(x, ui.editorX0())
 	return true
 }
 

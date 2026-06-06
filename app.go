@@ -750,12 +750,21 @@ func (app *App) handleMouseEvent(ev vaxis.Mouse) {
 		return
 	}
 
+	if ev.Button == vaxis.MouseLeftButton && ev.EventType == vaxis.EventPress {
+		app.win.SetLeftButtonHeld(true)
+	}
+	if ev.EventType == vaxis.EventRelease {
+		app.win.StopEditorDrag()
+	}
 	if ev.Button == vaxis.MouseLeftButton && (ev.EventType == vaxis.EventRelease || ev.EventType == vaxis.EventMotion) {
 		if app.win.ChannelColClicked() {
 			app.win.ResizeChannelCol(x + 1)
 		} else if app.win.MemberColClicked() {
 			app.win.ResizeMemberCol(w - x)
 		}
+	}
+	if ev.EventType == vaxis.EventMotion && app.win.LeftButtonHeld() {
+		app.win.ExtendEditorDrag(x)
 	}
 
 	if ev.EventType == vaxis.EventPress {
@@ -826,7 +835,7 @@ func (app *App) handleMouseEvent(ev vaxis.Mouse) {
 						Body: ui.PlainString(errNotSupported.Error()),
 					})
 				}
-			} else if !app.win.ClickEditorAt(x, y) {
+			} else if !app.win.StartEditorDragAt(x, y) {
 				app.win.Click(x, y, ev)
 			}
 		}
