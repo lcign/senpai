@@ -750,18 +750,6 @@ func (app *App) handleMouseEvent(ev vaxis.Mouse) {
 		return
 	}
 
-	if ev.Button == vaxis.MouseLeftButton && ev.EventType == vaxis.EventPress {
-		app.win.SetLeftButtonHeld(true)
-	}
-	// Extend on motion (if terminal sends these) and also on release as fallback.
-	// This way drag selection works even when EventMotion is not sent (e.g. trackpad on macOS).
-	if ev.EventType == vaxis.EventMotion && app.win.LeftButtonHeld() {
-		app.win.ExtendEditorDrag(x)
-	}
-	if ev.EventType == vaxis.EventRelease {
-		app.win.ExtendEditorDrag(x) // finalize selection at release position
-		app.win.StopEditorDrag()
-	}
 	if ev.Button == vaxis.MouseLeftButton && (ev.EventType == vaxis.EventRelease || ev.EventType == vaxis.EventMotion) {
 		if app.win.ChannelColClicked() {
 			app.win.ResizeChannelCol(x + 1)
@@ -838,7 +826,7 @@ func (app *App) handleMouseEvent(ev vaxis.Mouse) {
 						Body: ui.PlainString(errNotSupported.Error()),
 					})
 				}
-			} else if !app.win.StartEditorDragAt(x, y) {
+			} else if !app.win.ClickEditorAt(x, y) {
 				app.win.Click(x, y, ev)
 			}
 		}
