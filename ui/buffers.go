@@ -1396,7 +1396,7 @@ func (bs *BufferList) DrawTimeline(ui *UI, x0, y0, nickColWidth int) {
 			hlSt := vaxis.Style{Background: vaxis.IndexColor(4)}
 			for hy := yi; hy <= yi+len(nls); hy++ {
 				if hy >= y0 && hy < y0+bs.tlHeight {
-					for hx := x0; hx < x0+9+nickColWidth+bs.tlInnerWidth; hx++ {
+					for hx := x1; hx < x1+bs.tlInnerWidth; hx++ {
 						setCell(vx, hx, hy, ' ', hlSt)
 					}
 				}

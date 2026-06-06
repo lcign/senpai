@@ -1171,15 +1171,8 @@ func (app *App) handleKeyEvent(ev vaxis.Key) {
 		// Drop text when sent with modifiers preventing text
 		ev.Text = ""
 	}
-	if ev.Text != "" {
-		for _, r := range ev.Text {
-			app.win.InputRune(r)
-		}
-		app.typing()
-		app.spellCheck()
-		return
-	}
 
+	// Copy mode intercepts all keys before normal text/shortcut handling.
 	if app.win.CopyModeActive() {
 		for _, km := range keyMatches(ev) {
 			switch km {
@@ -1204,6 +1197,15 @@ func (app *App) handleKeyEvent(ev vaxis.Key) {
 				app.win.ExitCopyMode()
 			}
 		}
+		return
+	}
+
+	if ev.Text != "" {
+		for _, r := range ev.Text {
+			app.win.InputRune(r)
+		}
+		app.typing()
+		app.spellCheck()
 		return
 	}
 
