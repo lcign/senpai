@@ -626,6 +626,14 @@ func (ui *UI) ClickEditorAt(x, y int) bool {
 	return true
 }
 
+func (ui *UI) CopyModeActive() bool     { return ui.bs.copyMode }
+func (ui *UI) EnterCopyMode()           { ui.bs.EnterCopyMode() }
+func (ui *UI) ExitCopyMode()            { ui.bs.ExitCopyMode() }
+func (ui *UI) CopyMoveUp()              { ui.bs.CopyMoveUp() }
+func (ui *UI) CopyMoveDown()            { ui.bs.CopyMoveDown() }
+func (ui *UI) CopyToggleSelect()        { ui.bs.CopyToggleSelect() }
+func (ui *UI) CopySelectedText() string { return ui.bs.CopySelectedText() }
+
 func (ui *UI) SetTitle(title string) {
 	if ui.title == title {
 		return
@@ -902,6 +910,15 @@ func (ui *UI) drawVerticalLine(vx *Vaxis, x, y0, height int) {
 
 func (ui *UI) drawStatusBar(x0, y, width int) {
 	clearArea(ui.vx, x0, y, width, 1)
+
+	if ui.bs.copyMode {
+		x := x0
+		printString(ui.vx, &x, y, Styled(
+			"-- COPY --  ↑↓ navigate  v select  y yank  Esc exit",
+			vaxis.Style{Foreground: vaxis.IndexColor(11)},
+		))
+		return
+	}
 
 	if ui.status == "" {
 		return

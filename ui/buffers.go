@@ -242,16 +242,21 @@ type BufferList struct {
 
 	filterBuffers      bool
 	filterBuffersQuery string // lowercased
+
+	copyMode      bool
+	copyCursor    int
+	copySelAnchor int // -1 when no active selection
 }
 
 // NewBufferList returns a new BufferList.
 // Call Resize() once before using it.
 func NewBufferList(ui *UI) BufferList {
 	return BufferList{
-		ui:      ui,
-		list:    []buffer{},
-		clicked: -1,
-		focused: true,
+		ui:            ui,
+		list:          []buffer{},
+		clicked:       -1,
+		focused:       true,
+		copySelAnchor: -1,
 	}
 }
 
@@ -279,6 +284,8 @@ func (bs *BufferList) HasOverlay() bool {
 
 func (bs *BufferList) To(i int) bool {
 	bs.overlay = nil
+	bs.copyMode = false
+	bs.copySelAnchor = -1
 	if i == bs.current {
 		return false
 	}
@@ -1277,6 +1284,18 @@ func (bs *BufferList) DrawTimeline(ui *UI, x0, y0, nickColWidth int) {
 	vx := ui.vx
 
 	b := bs.cur()
+
+	// Clamp copy cursor in case lines changed while in copy mode.
+	if bs.copyMode {
+		if len(b.lines) == 0 {
+			bs.copyMode = false
+		} else {
+			if bs.copyCursor >= len(b.lines) {
+				bs.copyCursor = len(b.lines) - 1
+			}
+		}
+	}
+
 	if !b.openedOnce {
 		b.openedOnce = true
 		for i := 0; i < len(b.lines); i++ {
@@ -1358,6 +1377,30 @@ func (bs *BufferList) DrawTimeline(ui *UI, x0, y0, nickColWidth int) {
 		yi -= len(nls) + 1
 		if y0+bs.tlHeight <= yi {
 			continue
+		}
+
+		// Determine copy-mode highlight for this line.
+		copyHighlight := false
+		if bs.copyMode {
+			if i == bs.copyCursor {
+				copyHighlight = true
+			} else if bs.copySelAnchor >= 0 {
+				lo, hi := bs.copySelAnchor, bs.copyCursor
+				if lo > hi {
+					lo, hi = hi, lo
+				}
+				copyHighlight = i >= lo && i <= hi
+			}
+		}
+		if copyHighlight {
+			hlSt := vaxis.Style{Background: vaxis.IndexColor(4)}
+			for hy := yi; hy <= yi+len(nls); hy++ {
+				if hy >= y0 && hy < y0+bs.tlHeight {
+					for hx := x0; hx < x0+9+nickColWidth+bs.tlInnerWidth; hx++ {
+						setCell(vx, hx, hy, ' ', hlSt)
+					}
+				}
+			}
 		}
 
 		showDate := bs.shouldShowDate(b, i, yi, y0)
@@ -1454,7 +1497,11 @@ func (bs *BufferList) DrawTimeline(ui *UI, x0, y0, nickColWidth int) {
 
 			xb := x
 			if y >= y0 {
-				dx, di := printCluster(vx, x, y, -1, l, style)
+				drawStyle := style
+				if copyHighlight {
+					drawStyle.Background = vaxis.IndexColor(4)
+				}
+				dx, di := printCluster(vx, x, y, -1, l, drawStyle)
 				x += dx
 				lbi += len(string(l[:di]))
 				l = l[di:]
@@ -1497,4 +1544,98 @@ func (bs *BufferList) DrawTimeline(ui *UI, x0, y0, nickColWidth int) {
 	}
 
 	b.isAtTop = y0 <= yi
+}
+
+// EnterCopyMode enters copy mode with the cursor on the most recent line.
+func (bs *BufferList) EnterCopyMode() {
+	b := bs.cur()
+	if len(b.lines) == 0 {
+		return
+	}
+	bs.copyMode = true
+	bs.copyCursor = len(b.lines) - 1
+	bs.copySelAnchor = -1
+	bs.ensureCopyVisible()
+}
+
+func (bs *BufferList) ExitCopyMode() {
+	bs.copyMode = false
+	bs.copySelAnchor = -1
+}
+
+func (bs *BufferList) CopyMoveUp() {
+	if bs.copyCursor > 0 {
+		bs.copyCursor--
+		bs.ensureCopyVisible()
+	}
+}
+
+func (bs *BufferList) CopyMoveDown() {
+	b := bs.cur()
+	if bs.copyCursor < len(b.lines)-1 {
+		bs.copyCursor++
+		bs.ensureCopyVisible()
+	}
+}
+
+func (bs *BufferList) CopyToggleSelect() {
+	if bs.copySelAnchor < 0 {
+		bs.copySelAnchor = bs.copyCursor
+	} else {
+		bs.copySelAnchor = -1
+	}
+}
+
+// CopySelectedText returns the text of the cursor line or selection range,
+// formatted as "<nick> message" per line.
+func (bs *BufferList) CopySelectedText() string {
+	b := bs.cur()
+	lo, hi := bs.copyCursor, bs.copyCursor
+	if bs.copySelAnchor >= 0 {
+		lo = bs.copySelAnchor
+		if lo > hi {
+			lo, hi = hi, lo
+		}
+	}
+	if lo < 0 {
+		lo = 0
+	}
+	if hi >= len(b.lines) {
+		hi = len(b.lines) - 1
+	}
+	var sb strings.Builder
+	for i := lo; i <= hi; i++ {
+		if i > lo {
+			sb.WriteByte('\n')
+		}
+		head := b.lines[i].Head.String()
+		if head != "" && head != "--" && head != "!!" && head != "*" {
+			sb.WriteString("<")
+			sb.WriteString(head)
+			sb.WriteString("> ")
+		}
+		sb.WriteString(b.lines[i].Body.String())
+	}
+	return sb.String()
+}
+
+// ensureCopyVisible scrolls so the cursor line is visible.
+func (bs *BufferList) ensureCopyVisible() {
+	b := bs.cur()
+	// Compute visual y of copyCursor from the bottom (y=0 at newest line).
+	y := 0
+	for i := len(b.lines) - 1; i > bs.copyCursor; i-- {
+		nls := b.lines[i].NewLines(bs.ui.vx, bs.textWidth)
+		y += len(nls) + 1
+	}
+	cursorHeight := len(b.lines[bs.copyCursor].NewLines(bs.ui.vx, bs.textWidth)) + 1
+
+	// Scroll down (decrease scrollAmt) to show cursor at the bottom.
+	if y < b.scrollAmt {
+		b.scrollAmt = y
+	}
+	// Scroll up (increase scrollAmt) to show cursor at the top.
+	if y+cursorHeight > b.scrollAmt+bs.tlHeight {
+		b.scrollAmt = y + cursorHeight - bs.tlHeight
+	}
 }

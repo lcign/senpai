@@ -1016,6 +1016,12 @@ func (app *App) handleAction(action string, args ...string) {
 			app.typing()
 			app.spellCheck()
 		}
+	case "copy-mode":
+		if app.win.CopyModeActive() {
+			app.win.ExitCopyMode()
+		} else {
+			app.win.EnterCopyMode()
+		}
 	case "close-overlay":
 		app.win.CloseOverlay()
 	case "toggle-channel-list":
@@ -1126,6 +1132,7 @@ var defaultCommands = map[string][]string{
 	"\r":              {"send"},
 	"Control+j":       {"send"},
 	"KP_Enter":        {"send"},
+	"Alt+s":           {"copy-mode"},
 	"Alt+a":           {"buffer-next-unread"},
 	"Alt+n":           {"scroll-next-highlight"},
 	"Alt+p":           {"scroll-previous-highlight"},
@@ -1169,6 +1176,33 @@ func (app *App) handleKeyEvent(ev vaxis.Key) {
 		}
 		app.typing()
 		app.spellCheck()
+		return
+	}
+
+	if app.win.CopyModeActive() {
+		for _, km := range keyMatches(ev) {
+			switch km {
+			case keyMatch{keycode: vaxis.KeyUp}:
+				app.win.CopyMoveUp()
+			case keyMatch{keycode: vaxis.KeyDown}:
+				app.win.CopyMoveDown()
+			case keyMatch{keycode: 'v'}:
+				app.win.CopyToggleSelect()
+			case keyMatch{keycode: 'y'}:
+				text := app.win.CopySelectedText()
+				if err := copyToClipboard(text); err != nil {
+					netID, _ := app.win.CurrentBuffer()
+					app.addStatusLine(netID, ui.Line{
+						At:   time.Now(),
+						Head: ui.ColorString("!!", ui.ColorRed),
+						Body: ui.PlainSprintf("clipboard: %v", err),
+					})
+				}
+				app.win.ExitCopyMode()
+			case keyMatch{keycode: vaxis.KeyEsc}:
+				app.win.ExitCopyMode()
+			}
+		}
 		return
 	}
 
@@ -2734,6 +2768,26 @@ func keyMatches(k vaxis.Key) []keyMatch {
 		})
 	}
 	return keys
+}
+
+func copyToClipboard(text string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("pbcopy")
+	case "linux":
+		if _, err := exec.LookPath("wl-copy"); err == nil {
+			cmd = exec.Command("wl-copy")
+		} else {
+			cmd = exec.Command("xclip", "-selection", "clipboard")
+		}
+	case "windows":
+		cmd = exec.Command("clip")
+	default:
+		return fmt.Errorf("clipboard not supported on %s", runtime.GOOS)
+	}
+	cmd.Stdin = strings.NewReader(text)
+	return cmd.Run()
 }
 
 func formatSize(v int64) string {
