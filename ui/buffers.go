@@ -1608,12 +1608,6 @@ func (bs *BufferList) CopySelectedText() string {
 		if i > lo {
 			sb.WriteByte('\n')
 		}
-		head := b.lines[i].Head.String()
-		if head != "" && head != "--" && head != "!!" && head != "*" {
-			sb.WriteString("<")
-			sb.WriteString(head)
-			sb.WriteString("> ")
-		}
 		sb.WriteString(b.lines[i].Body.String())
 	}
 	return sb.String()
