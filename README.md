@@ -14,6 +14,35 @@ senpai is an IRC client that works best with bouncers:
 - messages can be searched in logs via [SEARCH],
 - files can be uploaded via [FILEHOST] (with drag & drop!)
 
+## Ghostty extras (this fork)
+
+This fork adds a few features optimised for [Ghostty](https://ghostty.org):
+
+- **URL indicators** — image links show 🖼, regular links show 🔗
+- **Click to move cursor** — click on the input line to reposition the text cursor
+- **Copy mode** — select and copy chat messages to clipboard
+
+### Copy mode
+
+| Key | Action |
+|-----|--------|
+| `F9` (or `Option+S`*) | Enter / exit copy mode |
+| `↑` / `↓` | Move cursor between messages |
+| `v` | Start / extend selection |
+| `y` | Yank (copy) selected text to clipboard |
+| `Esc` | Exit copy mode |
+
+Click on any chat line to jump the cursor there. Paste with `Cmd+V` as usual.
+
+> **\*Option+S on macOS:** by default Ghostty sends `ß` instead of `Alt+S`.
+> To make `Option+S` work as a shortcut, add this line to `~/.config/ghostty/config` and restart Ghostty:
+> ```
+> macos-option-as-alt = left
+> ```
+> `F9` works immediately without any configuration change.
+
+---
+
 ## Quick demo
 
 To try out senpai "online", a live SSH demo is available at:
