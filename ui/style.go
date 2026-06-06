@@ -272,6 +272,86 @@ func parseHexColor(raw string) (fg, bg vaxis.Color, n int) {
 	return fg, bg, n
 }
 
+// isImageHyperlink reports whether link points to an image file by extension.
+func isImageHyperlink(link string) bool {
+	u, err := url.Parse(link)
+	if err != nil {
+		return false
+	}
+	p := strings.ToLower(u.Path)
+	return strings.HasSuffix(p, ".jpg") || strings.HasSuffix(p, ".jpeg") ||
+		strings.HasSuffix(p, ".png") || strings.HasSuffix(p, ".gif")
+}
+
+// WithURLIndicators inserts an emoji prefix before each URL hyperlink:
+// "🖼  " before image links, "🔗 " before other links.
+func (s StyledString) WithURLIndicators() StyledString {
+	const (
+		imageIndicator = "🖼  " // wide emoji + 2 spaces
+		linkIndicator  = "🔗 "  // wide emoji + 1 space
+	)
+
+	type urlInsert struct {
+		at        int
+		text      string
+		prevStyle vaxis.Style
+	}
+	var inserts []urlInsert
+
+	prevParams := ""
+	prevPlainStyle := vaxis.Style{}
+	for _, rs := range s.styles {
+		if rs.Style.HyperlinkParams != prevParams {
+			if rs.Style.Hyperlink != "" {
+				ind := linkIndicator
+				if isImageHyperlink(rs.Style.Hyperlink) {
+					ind = imageIndicator
+				}
+				inserts = append(inserts, urlInsert{at: rs.Start, text: ind, prevStyle: prevPlainStyle})
+			}
+			prevParams = rs.Style.HyperlinkParams
+		}
+		if rs.Style.Hyperlink == "" {
+			prevPlainStyle = rs.Style
+		}
+	}
+
+	if len(inserts) == 0 {
+		return s
+	}
+
+	// Build new string with indicators inserted before each URL.
+	var sb strings.Builder
+	totalExtra := 0
+	for _, ins := range inserts {
+		totalExtra += len(ins.text)
+	}
+	sb.Grow(len(s.string) + totalExtra)
+	pos := 0
+	for _, ins := range inserts {
+		sb.WriteString(s.string[pos:ins.at])
+		sb.WriteString(ins.text)
+		pos = ins.at
+	}
+	sb.WriteString(s.string[pos:])
+
+	// Rebuild style list, adjusting byte offsets to account for insertions.
+	newStyles := make([]rangedStyle, 0, len(s.styles)+len(inserts))
+	ii := 0
+	offset := 0
+	for _, rs := range s.styles {
+		for ii < len(inserts) && inserts[ii].at <= rs.Start {
+			ins := inserts[ii]
+			newStyles = append(newStyles, rangedStyle{Start: ins.at + offset, Style: ins.prevStyle})
+			offset += len(ins.text)
+			ii++
+		}
+		newStyles = append(newStyles, rangedStyle{Start: rs.Start + offset, Style: rs.Style})
+	}
+
+	return StyledString{string: sb.String(), styles: newStyles}
+}
+
 func lastRuneBefore(s string, i int) rune {
 	var r rune
 	for ri, rr := range s {

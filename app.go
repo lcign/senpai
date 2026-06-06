@@ -1676,7 +1676,7 @@ func (app *App) handleIRCEvent(netID string, ev interface{}) {
 			app.win.JumpBufferIndex(i)
 		}
 		if ev.Topic != "" {
-			topic := ui.IRCString(ev.Topic).ParseURLs()
+			topic := ui.IRCString(ev.Topic).ParseURLs().WithURLIndicators()
 			app.win.SetTopic(netID, ev.Channel, topic)
 		}
 
@@ -1713,7 +1713,7 @@ func (app *App) handleIRCEvent(netID string, ev interface{}) {
 	case irc.TopicChangeEvent:
 		line := app.formatEvent(ev)
 		app.win.AddLine(netID, ev.Channel, line)
-		topic := ui.IRCString(ev.Topic).ParseURLs()
+		topic := ui.IRCString(ev.Topic).ParseURLs().WithURLIndicators()
 		app.win.SetTopic(netID, ev.Channel, topic)
 	case irc.ModeChangeEvent:
 		if !app.cfg.StatusEnabled {

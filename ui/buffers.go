@@ -503,7 +503,7 @@ func (bs *BufferList) AddLine(netID, title string, line Line) {
 	line.At = line.At.UTC()
 
 	if !line.Mergeable && b.openedOnce {
-		line.Body = line.Body.ParseURLs()
+		line.Body = line.Body.ParseURLs().WithURLIndicators()
 	}
 
 	if line.Mergeable && n != 0 && b.lines[n-1].Mergeable {
@@ -553,7 +553,7 @@ func (bs *BufferList) AddLines(netID, title string, before, after []Line) {
 			} else {
 				if buf != &b.lines {
 					if b.openedOnce {
-						line.Body = line.Body.ParseURLs()
+						line.Body = line.Body.ParseURLs().WithURLIndicators()
 					}
 					line.computeSplitPoints(bs.ui.vx)
 				}
@@ -1280,7 +1280,7 @@ func (bs *BufferList) DrawTimeline(ui *UI, x0, y0, nickColWidth int) {
 	if !b.openedOnce {
 		b.openedOnce = true
 		for i := 0; i < len(b.lines); i++ {
-			b.lines[i].Body = b.lines[i].Body.ParseURLs()
+			b.lines[i].Body = b.lines[i].Body.ParseURLs().WithURLIndicators()
 		}
 	}
 
