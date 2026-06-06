@@ -783,8 +783,6 @@ func (ui *UI) ShowImage(img image.Image) bool {
 		return false
 	}
 	w, h := ui.vx.window.Size()
-	w = w * 9 / 10
-	h = h * 9 / 10
 	vi.Resize(w, h)
 	ui.image = vi
 	return true
@@ -1070,8 +1068,6 @@ func (ui *UI) maybeResizeImage(img image.Image, exifOrientation int) image.Image
 		return img
 	}
 	w, h := ui.vx.window.Size()
-	w = w * 9 / 10
-	h = h * 9 / 10
 	if w <= 0 || h <= 0 {
 		return img
 	}
@@ -1083,26 +1079,25 @@ func (ui *UI) maybeResizeImage(img image.Image, exifOrientation int) image.Image
 	}
 	cellPixW := ui.vx.xPixel / w
 	cellPixH := ui.vx.yPixel / h
-	columns := (wp + cellPixW - 1) / cellPixW
-	lines := (hp + cellPixH - 1) / cellPixH
-	if columns <= w && lines <= h {
+	if cellPixW <= 0 || cellPixH <= 0 {
 		return img
 	}
+	columns := (wp + cellPixW - 1) / cellPixW
+	lines := (hp + cellPixH - 1) / cellPixH
 	sfX := float64(w) / float64(columns)
 	sfY := float64(h) / float64(lines)
-	nwp := wp
-	nhp := hp
-	switch {
-	case sfX < sfY:
-		nwp = int(sfX * float64(wp))
-		nhp = int(sfX * float64(hp))
-	case sfX > sfY:
-		nwp = int(sfY * float64(wp))
-		nhp = int(sfY * float64(hp))
+	sf := sfX
+	if sfY < sfX {
+		sf = sfY
+	}
+	nwp := int(sf * float64(wp))
+	nhp := int(sf * float64(hp))
+	if nwp <= 0 || nhp <= 0 || (nwp == wp && nhp == hp) {
+		return img
 	}
 	switch exifOrientation {
 	case 6, 8:
 		nwp, nhp = nhp, nwp
 	}
-	return imaging.Resize(img, nwp, nhp, imaging.NearestNeighbor)
+	return imaging.Resize(img, nwp, nhp, imaging.Lanczos)
 }

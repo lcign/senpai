@@ -5,8 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"html"
-	"image"
+"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
@@ -17,7 +16,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"regexp"
+	"runtime"
 	"runtime/debug"
 	"sort"
 	"strconv"
@@ -663,8 +662,7 @@ func (app *App) handleUIEvent(ev interface{}) bool {
 	case *events.EventClickTopic:
 		app.handleTopicEvent(ev)
 	case *events.EventImageLoaded:
-		app.win.ShowImage(ev.Image)
-		if ev.Image == nil {
+		if !app.win.ShowImage(ev.Image) || ev.Image == nil {
 			app.imageLoading = false
 		}
 	case *events.EventFileUpload:
@@ -1104,8 +1102,10 @@ var defaultCommands = map[string][]string{
 	"Control+Left":    {"cursor-left-word"},
 	"Left":            {"cursor-left"},
 	"Alt+Up":          {"buffer-previous"},
+	"Shift+Up":        {"buffer-previous"},
 	"Up":              {"cursor-up"},
 	"Alt+Down":        {"buffer-next"},
+	"Shift+Down":      {"buffer-next"},
 	"Down":            {"cursor-down"},
 	"Alt+Home":        {"buffer", "0"},
 	"Home":            {"cursor-start"},
@@ -1219,8 +1219,15 @@ func (app *App) handleTopicEvent(ev *events.EventClickTopic) {
 	app.win.ToggleTopicExpanded(ev.NetID, ev.Buffer)
 }
 
-var patternOpenGraphImage = regexp.MustCompile(`<meta property="og:image" content="(.*?)"/?>`)
-var patternOpenGraphVideo = regexp.MustCompile(`<meta property="og:video"`)
+func looksLikeImageURL(link string) bool {
+	u, err := url.Parse(link)
+	if err != nil {
+		return false
+	}
+	p := strings.ToLower(u.Path)
+	return strings.HasSuffix(p, ".jpg") || strings.HasSuffix(p, ".jpeg") ||
+		strings.HasSuffix(p, ".png") || strings.HasSuffix(p, ".gif")
+}
 
 func (app *App) fetchImage(link string) (image.Image, error) {
 	userAgent := "senpai"
@@ -1241,72 +1248,41 @@ func (app *App) fetchImage(link string) (image.Image, error) {
 		}
 	}
 
-	cHead := http.Client{
-		Timeout: 1500 * time.Millisecond,
-	}
-	req, err := http.NewRequest("HEAD", link, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", userAgent)
-	res, err := cHead.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", res.StatusCode)
-	}
-	contentType, _, err := mime.ParseMediaType(res.Header.Get("Content-Type"))
-	if err != nil {
-		return nil, fmt.Errorf("unexpected content type: %v", res.Header.Get("Content-Type"))
-	}
-	var isHTML bool
-	switch contentType {
-	case "image/gif", "image/jpeg", "image/png": // Actual image, fetch
-	case "text/html": // Might have an opengraph image, try fetching
-		isHTML = true
-	default:
-		return nil, fmt.Errorf("unexpected content type: %v", contentType)
-	}
-	if isHTML {
-		req, err := http.NewRequest("GET", link, nil)
+	// If the URL already looks like a direct image, skip the HEAD check and fetch directly.
+	if !looksLikeImageURL(link) {
+		cHead := http.Client{
+			Timeout: 1500 * time.Millisecond,
+		}
+		req, err := http.NewRequest("HEAD", link, nil)
 		if err != nil {
 			return nil, err
 		}
 		req.Header.Set("User-Agent", userAgent)
-		var previewSize int64 = 10 * 1024
-		if res.Header.Get("Accept-Ranges") == "bytes" {
-			req.Header.Set("Range", fmt.Sprintf("bytes=0-%v", previewSize))
-		}
-		res, err = cHead.Do(req)
+		res, err := cHead.Do(req)
 		if err != nil {
 			return nil, err
 		}
-		b, err := io.ReadAll(io.LimitReader(res.Body, previewSize))
 		res.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("unexpected status code: %d", res.StatusCode)
+		}
+		contentType, _, err := mime.ParseMediaType(res.Header.Get("Content-Type"))
 		if err != nil {
-			return nil, fmt.Errorf("unexpected read error: %v", err)
+			return nil, fmt.Errorf("unexpected content type: %v", res.Header.Get("Content-Type"))
 		}
-		if patternOpenGraphVideo.Match(b) {
-			// Do not display image (previews) of video objects
-			return nil, fmt.Errorf("video embed found")
+		if !strings.HasPrefix(contentType, "image/") {
+			return nil, fmt.Errorf("unexpected content type: %v", contentType)
 		}
-		m := patternOpenGraphImage.FindSubmatch(b)
-		if len(m) < 2 {
-			return nil, fmt.Errorf("image embed not found")
-		}
-		link = html.UnescapeString(string(m[1]))
 	}
 	cGet := http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: 30 * time.Second,
 	}
-	req, err = http.NewRequest("GET", link, nil)
+	req, err := http.NewRequest("GET", link, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", userAgent)
-	res, err = cGet.Do(req)
+	res, err := cGet.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -1321,29 +1297,35 @@ func (app *App) fetchImage(link string) (image.Image, error) {
 func (app *App) handleLinkEvent(ev *events.EventClickLink) {
 	open := func() {
 		if strings.HasPrefix(ev.Link, "-") {
-			// Avoid injection of parameters.
-			// Sadly xdg-open does not support "--"...
 			return
 		}
-		cmd := exec.Command("xdg-open", ev.Link)
+		var cmd *exec.Cmd
+		switch runtime.GOOS {
+		case "darwin":
+			cmd = exec.Command("open", ev.Link)
+		case "windows":
+			cmd = exec.Command("cmd", "/c", "start", ev.Link)
+		default:
+			cmd = exec.Command("xdg-open", ev.Link)
+		}
 		cmd.Run()
 	}
 
 	if ev.Event.Modifiers == vaxis.ModCtrl {
 		if ev.Mouse {
 			// Only react to Ctrl+Click when mouse links are enabled.
-
-			// Explicit external link open requested with Ctrl+Click:
-			// just run xdg-open.
 			go open()
 		}
 		return
 	}
 
-	// Regular link open requested:
-	// Try fetching as an image and displaying a preview;
-	// fall back to xdg-open if mouse links are enabled.
+	// For non-image URLs, open browser immediately without any network request.
+	if !looksLikeImageURL(ev.Link) {
+		go open()
+		return
+	}
 
+	// For direct image URLs, try to fetch and display a preview.
 	app.imageLoading = true
 	go func() {
 		img, err := app.fetchImage(ev.Link)
@@ -1354,9 +1336,6 @@ func (app *App) handleLinkEvent(ev *events.EventClickLink) {
 					Image: nil,
 				},
 			})
-			if ev.Mouse {
-				open()
-			}
 		} else {
 			app.postEvent(event{
 				src: "*",
