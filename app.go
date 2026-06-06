@@ -826,6 +826,8 @@ func (app *App) handleMouseEvent(ev vaxis.Mouse) {
 						Body: ui.PlainString(errNotSupported.Error()),
 					})
 				}
+			} else if app.win.CopyModeActive() {
+				app.win.CopyClickAt(y)
 			} else if !app.win.ClickEditorAt(x, y) {
 				app.win.Click(x, y, ev)
 			}

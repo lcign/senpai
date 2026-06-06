@@ -246,6 +246,7 @@ type BufferList struct {
 	copyMode      bool
 	copyCursor    int
 	copySelAnchor int // -1 when no active selection
+	tlBodyY       int // y0 of first rendered line row (set during DrawTimeline)
 }
 
 // NewBufferList returns a new BufferList.
@@ -1349,6 +1350,7 @@ func (bs *BufferList) DrawTimeline(ui *UI, x0, y0, nickColWidth int) {
 		x0 += (bs.tlInnerWidth - bs.textWidth) / 2
 	}
 
+	bs.tlBodyY = y0
 	yi := b.scrollAmt + y0 + bs.tlHeight
 	rulerDrawn := b.unreadSkip != optionalFalse || b.unreadRuler.IsZero() || b.title == ""
 	for i := len(b.lines) - 1; 0 <= i; i-- {
@@ -1611,6 +1613,30 @@ func (bs *BufferList) CopySelectedText() string {
 		sb.WriteString(b.lines[i].Body.String())
 	}
 	return sb.String()
+}
+
+// CopyClickAt moves the copy cursor to the line at the given screen row.
+func (bs *BufferList) CopyClickAt(screenRow int) {
+	b := bs.cur()
+	y0 := bs.tlBodyY
+	yi := b.scrollAmt + y0 + bs.tlHeight
+	rulerDrawn := b.unreadSkip != optionalFalse || b.unreadRuler.IsZero() || b.title == ""
+	for i := len(b.lines) - 1; 0 <= i; i-- {
+		line := &b.lines[i]
+		nls := line.NewLines(bs.ui.vx, bs.textWidth)
+		if !rulerDrawn && !line.At.After(b.unreadRuler) {
+			rulerDrawn = true
+			yi--
+		}
+		yi -= len(nls) + 1
+		if yi < y0 {
+			break
+		}
+		if screenRow >= yi && screenRow <= yi+len(nls) {
+			bs.copyCursor = i
+			return
+		}
+	}
 }
 
 // ensureCopyVisible scrolls so the cursor line is visible.

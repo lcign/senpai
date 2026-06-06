@@ -633,6 +633,7 @@ func (ui *UI) CopyMoveUp()              { ui.bs.CopyMoveUp() }
 func (ui *UI) CopyMoveDown()            { ui.bs.CopyMoveDown() }
 func (ui *UI) CopyToggleSelect()        { ui.bs.CopyToggleSelect() }
 func (ui *UI) CopySelectedText() string { return ui.bs.CopySelectedText() }
+func (ui *UI) CopyClickAt(row int)      { ui.bs.CopyClickAt(row) }
 
 func (ui *UI) SetTitle(title string) {
 	if ui.title == title {
