@@ -438,6 +438,26 @@ func (e *Editor) LeftWord() {
 	e.backsearchEnd()
 }
 
+// ClickAt moves the cursor to the grapheme cluster at the given screen column.
+// x0 is the screen column where the editor text area starts.
+func (e *Editor) ClickAt(screenX, x0 int) {
+	relX := screenX - x0
+	if relX < 0 {
+		relX = 0
+	}
+	offsetW := e.textWidth[e.offsetIdx]
+	clusters := e.text[e.lineIdx].clusters
+	e.cursorIdx = len(clusters) - 1
+	for i := e.offsetIdx + 1; i < len(clusters); i++ {
+		if e.textWidth[i]-offsetW > relX {
+			e.cursorIdx = i - 1
+			break
+		}
+	}
+	e.autoCache = nil
+	e.backsearchEnd()
+}
+
 func (e *Editor) Home() {
 	if e.cursorIdx == 0 {
 		return

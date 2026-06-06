@@ -606,6 +606,25 @@ func (ui *UI) SetPrompt(prompt StyledString) {
 	ui.prompt = prompt
 }
 
+// ClickEditorAt moves the input cursor to the click position if y is the editor row.
+// Returns true if the click was on the editor line.
+func (ui *UI) ClickEditorAt(x, y int) bool {
+	_, h := ui.vx.window.Size()
+	var editorRow, x0 int
+	if ui.channelWidth == 0 {
+		editorRow = h - 2
+		x0 = 9 + ui.config.NickColWidth
+	} else {
+		editorRow = h - 1
+		x0 = 9 + ui.channelWidth + ui.config.NickColWidth
+	}
+	if y != editorRow || x < x0 {
+		return false
+	}
+	ui.e.ClickAt(x, x0)
+	return true
+}
+
 func (ui *UI) SetTitle(title string) {
 	if ui.title == title {
 		return

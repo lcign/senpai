@@ -826,7 +826,7 @@ func (app *App) handleMouseEvent(ev vaxis.Mouse) {
 						Body: ui.PlainString(errNotSupported.Error()),
 					})
 				}
-			} else {
+			} else if !app.win.ClickEditorAt(x, y) {
 				app.win.Click(x, y, ev)
 			}
 		}
