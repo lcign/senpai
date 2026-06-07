@@ -1120,6 +1120,7 @@ var defaultCommands = map[string][]string{
 	"Alt+End":         {"buffer", "last"},
 	"End":             {"cursor-end"},
 	"Alt+BackSpace":   {"cursor-delete-previous-word"},
+	"Super+BackSpace": {"cursor-delete-previous-word"},
 	"Alt+Delete":      {"cursor-delete-next-word"},
 	"BackSpace":       {"cursor-delete-previous"},
 	"Shift+BackSpace": {"cursor-delete-previous"},
