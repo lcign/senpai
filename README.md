@@ -14,32 +14,54 @@ senpai is an IRC client that works best with bouncers:
 - messages can be searched in logs via [SEARCH],
 - files can be uploaded via [FILEHOST] (with drag & drop!)
 
-## Ghostty extras (this fork)
+## senpai-on-ghostty — what's different
 
-This fork adds a few features optimised for [Ghostty](https://ghostty.org):
+This is a fork of [senpai](https://git.sr.ht/~delthas/senpai) with extra features built around [Ghostty](https://ghostty.org) on macOS.
 
-- **URL indicators** — image links show 🖼, regular links show 🔗
-- **Click to move cursor** — click on the input line to reposition the text cursor
-- **Copy mode** — select and copy chat messages to clipboard
+### URL indicators
+
+Every link in the chat gets a visual prefix:
+
+| Indicator | Type |
+|-----------|------|
+| 🖼 | Image (jpg, png, gif…) — click to preview inline |
+| 🎬 | Video (mp4, mov, webm…) — click to open in QuickTime |
+| 🔗 | Any other URL — click to open in browser |
+
+### Click to move cursor
+
+Click anywhere on the input line to move the text cursor to that position.
 
 ### Copy mode
+
+Press `F9` to enter copy mode and select text from the chat history.
 
 | Key | Action |
 |-----|--------|
 | `F9` (or `Option+S`*) | Enter / exit copy mode |
-| `↑` / `↓` | Move cursor between messages |
+| `↑` / `↓` | Move cursor line by line |
+| click | Jump cursor to clicked line |
 | `v` | Start / extend selection |
-| `y` | Yank (copy) selected text to clipboard |
-| `Esc` | Exit copy mode |
+| `y` | Copy selected text to clipboard |
+| `Esc` | Exit without copying |
 
-Click on any chat line to jump the cursor there. Paste with `Cmd+V` as usual.
+Selected lines are highlighted in blue. The copied text goes to the system clipboard (`pbcopy` on macOS). Paste into the input with `Cmd+V` as usual.
 
-> **\*Option+S on macOS:** by default Ghostty sends `ß` instead of `Alt+S`.
-> To make `Option+S` work as a shortcut, add this line to `~/.config/ghostty/config` and restart Ghostty:
-> ```
-> macos-option-as-alt = left
-> ```
-> `F9` works immediately without any configuration change.
+### Video preview
+
+Click a 🎬 link and senpai downloads the file to a temp location and opens it with the system default player (QuickTime on macOS) — no browser involved. The temp file is removed automatically when you close the player.
+
+---
+
+### Ghostty configuration
+
+By default on macOS, the Option key produces special characters (Option+S = ß) and is not forwarded to the app as Alt. To enable `Option+S` for copy mode, add to `~/.config/ghostty/config`:
+
+```
+macos-option-as-alt = left
+```
+
+`F9` works immediately without any configuration change.
 
 ---
 
