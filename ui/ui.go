@@ -638,9 +638,13 @@ func (ui *UI) CopyClickAt(row int)      { ui.bs.CopyClickAt(row) }
 
 func (ui *UI) MarkdownViewerActive() bool { return ui.mdv.active }
 func (ui *UI) OpenMarkdownViewer(title, content string) {
-	_, h := ui.vx.window.Size()
-	ui.mdv.open(title, content, ui.bs.tlInnerWidth)
-	_ = h
+	w, _ := ui.vx.window.Size()
+	// box: x0=2, bw=w-4; content area = bw-2 (borders) -1 (scrollbar) = w-7
+	innerW := w - 7
+	if innerW < 20 {
+		innerW = 20
+	}
+	ui.mdv.open(title, content, innerW)
 }
 func (ui *UI) CloseMarkdownViewer()         { ui.mdv.close() }
 func (ui *UI) MarkdownViewerScrollUp(n int) { ui.mdv.scrollUp(n) }

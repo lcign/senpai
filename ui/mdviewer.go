@@ -48,36 +48,107 @@ func renderMarkdown(content string, width int) []StyledString {
 	inCode := false
 	rawLines := strings.Split(content, "\n")
 
+	add := func(s StyledString) {
+		out = append(out, wrapStyledLine(s, width)...)
+	}
+
 	for _, raw := range rawLines {
 		if strings.HasPrefix(raw, "```") {
 			inCode = !inCode
 			continue
 		}
 		if inCode {
-			out = append(out, Styled("  "+raw, vaxis.Style{Foreground: vaxis.IndexColor(10)}))
+			add(Styled("  "+raw, vaxis.Style{Foreground: vaxis.IndexColor(10)}))
 			continue
 		}
 		switch {
 		case strings.HasPrefix(raw, "# "):
-			out = append(out, Styled(raw[2:], vaxis.Style{Foreground: vaxis.IndexColor(14), Attribute: vaxis.AttrBold}))
+			add(Styled(raw[2:], vaxis.Style{Foreground: vaxis.IndexColor(14), Attribute: vaxis.AttrBold}))
 		case strings.HasPrefix(raw, "## "):
-			out = append(out, Styled(raw[3:], vaxis.Style{Foreground: vaxis.IndexColor(11), Attribute: vaxis.AttrBold}))
+			add(Styled(raw[3:], vaxis.Style{Foreground: vaxis.IndexColor(11), Attribute: vaxis.AttrBold}))
 		case strings.HasPrefix(raw, "### "):
-			out = append(out, Styled(raw[4:], vaxis.Style{Attribute: vaxis.AttrBold}))
+			add(Styled(raw[4:], vaxis.Style{Attribute: vaxis.AttrBold}))
 		case strings.HasPrefix(raw, "#### ") || strings.HasPrefix(raw, "##### ") || strings.HasPrefix(raw, "###### "):
 			idx := strings.Index(raw, " ")
-			out = append(out, Styled(raw[idx+1:], vaxis.Style{Attribute: vaxis.AttrBold}))
+			add(Styled(raw[idx+1:], vaxis.Style{Attribute: vaxis.AttrBold}))
 		case strings.TrimRight(raw, "-") == "" && len(strings.TrimSpace(raw)) >= 3 && strings.TrimSpace(raw)[0] == '-':
-			out = append(out, PlainString(strings.Repeat("─", width-4)))
+			sep := width
+			if sep < 1 {
+				sep = 1
+			}
+			out = append(out, PlainString(strings.Repeat("─", sep)))
 		case strings.HasPrefix(raw, "- ") || strings.HasPrefix(raw, "* "):
-			out = append(out, parseMdInline("• "+raw[2:]))
+			add(parseMdInline("• "+raw[2:]))
 		case strings.HasPrefix(raw, "  - ") || strings.HasPrefix(raw, "  * "):
-			out = append(out, parseMdInline("  • "+raw[4:]))
+			add(parseMdInline("  • "+raw[4:]))
 		default:
-			out = append(out, parseMdInline(raw))
+			add(parseMdInline(raw))
 		}
 	}
 	return out
+}
+
+// sliceStyledBytes returns the sub-StyledString from startByte to endByte,
+// carrying over the style in effect at startByte.
+func sliceStyledBytes(s StyledString, startByte, endByte int) StyledString {
+	sub := s.string[startByte:endByte]
+	if len(sub) == 0 {
+		return PlainString("")
+	}
+	var inherit vaxis.Style
+	var newStyles []rangedStyle
+	for _, rs := range s.styles {
+		if rs.Start < startByte {
+			inherit = rs.Style
+		} else if rs.Start < endByte {
+			newStyles = append(newStyles, rangedStyle{Start: rs.Start - startByte, Style: rs.Style})
+		}
+	}
+	if len(newStyles) == 0 || newStyles[0].Start != 0 {
+		newStyles = append([]rangedStyle{{Start: 0, Style: inherit}}, newStyles...)
+	}
+	return StyledString{string: sub, styles: newStyles}
+}
+
+// wrapStyledLine splits s into lines of at most maxWidth runes, breaking at spaces.
+func wrapStyledLine(s StyledString, maxWidth int) []StyledString {
+	if maxWidth <= 0 {
+		return []StyledString{s}
+	}
+	sr := []rune(s.string)
+	if len(sr) <= maxWidth {
+		return []StyledString{s}
+	}
+	var result []StyledString
+	runeStart := 0
+	for runeStart < len(sr) {
+		remaining := len(sr) - runeStart
+		if remaining <= maxWidth {
+			byteStart := len(string(sr[:runeStart]))
+			result = append(result, sliceStyledBytes(s, byteStart, len(s.string)))
+			break
+		}
+		// Find last space within maxWidth of runeStart.
+		breakAt := runeStart + maxWidth
+		spaceAt := -1
+		for i := breakAt; i > runeStart; i-- {
+			if sr[i] == ' ' {
+				spaceAt = i
+				break
+			}
+		}
+		lineEnd := breakAt
+		nextStart := breakAt
+		if spaceAt > runeStart {
+			lineEnd = spaceAt
+			nextStart = spaceAt + 1
+		}
+		byteStart := len(string(sr[:runeStart]))
+		byteEnd := len(string(sr[:lineEnd]))
+		result = append(result, sliceStyledBytes(s, byteStart, byteEnd))
+		runeStart = nextStart
+	}
+	return result
 }
 
 func parseMdInline(s string) StyledString {
