@@ -66,6 +66,20 @@ GitHub and GitLab blob URLs are automatically rewritten to their raw equivalents
 
 Rendered elements: headings (`#`, `##`, `###`), **bold**, `inline code`, fenced code blocks, bullet lists.
 
+### /x0 upload
+
+`/x0 <file>` uploads a file to [x0.at](https://x0.at) and pastes the resulting URL into the input.
+
+Drag & drop a file onto the terminal to auto-fill the command. Shared URLs from x0.at are also parsed and shown with the appropriate 🖼 / 🎬 / 📄 indicator.
+
+### /LIST improvements
+
+`/LIST` now sorts channels by activity: the most recently active channel (highest user count at query time) appears first, so the busiest channels are always at the top of the list.
+
+### Topic expand toggle
+
+Long channel topics can be expanded inline — click the topic bar or use the keyboard shortcut to toggle between the truncated and full view.
+
 ---
 
 ### Ghostty configuration
