@@ -1321,36 +1321,35 @@ func looksLikeImageURL(link string) bool {
 		strings.HasSuffix(p, ".png") || strings.HasSuffix(p, ".gif")
 }
 
-// textBrowserCmd returns an exec.Cmd to render link with the configured text
-// browser, or nil if no text browser should be used (open in default browser).
+// textBrowserCmd returns an exec.Cmd to render link with lynx, or nil to fall
+// back to the default browser. Also searches /opt/homebrew/bin and /usr/local/bin
+// so that GUI-launched instances (Ghostty) find Homebrew binaries.
 func (app *App) textBrowserCmd(width int, link string) *exec.Cmd {
-	w := strconv.Itoa(width)
 	use := app.cfg.TextBrowser
 	if use == "none" {
 		return nil
 	}
-	// Explicit config value.
-	if use == "elinks" {
-		// felinks is the maintained elinks fork on Homebrew; binary may be either name.
-		bin := "elinks"
-		if _, err := exec.LookPath(bin); err != nil {
-			bin = "felinks"
+	bin := findBinary("lynx")
+	if bin == "" {
+		return nil
+	}
+	w := strconv.Itoa(width)
+	return exec.Command(bin, "-dump", "-nolist", "-width="+w, link)
+}
+
+// findBinary returns the full path of a binary, also checking common Homebrew
+// prefixes that may be absent from the PATH of GUI-launched processes.
+func findBinary(name string) string {
+	if p, err := exec.LookPath(name); err == nil {
+		return p
+	}
+	for _, dir := range []string{"/opt/homebrew/bin", "/usr/local/bin"} {
+		p := dir + "/" + name
+		if _, err := os.Stat(p); err == nil {
+			return p
 		}
-		return exec.Command(bin, "-dump", "-dump-color-mode", "1", "-dump-width", w, link)
 	}
-	if use == "lynx" {
-		return exec.Command("lynx", "-dump", "-nolist", "-width="+w, link)
-	}
-	// Auto-detect: elinks/felinks first (colors), then lynx (plain text).
-	for _, bin := range []string{"elinks", "felinks"} {
-		if _, err := exec.LookPath(bin); err == nil {
-			return exec.Command(bin, "-dump", "-dump-color-mode", "1", "-dump-width", w, link)
-		}
-	}
-	if _, err := exec.LookPath("lynx"); err == nil {
-		return exec.Command("lynx", "-dump", "-nolist", "-width="+w, link)
-	}
-	return nil
+	return ""
 }
 
 func looksLikeMarkdownURL(link string) bool {

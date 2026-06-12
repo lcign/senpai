@@ -88,17 +88,16 @@ Long channel topics can be expanded inline — click the topic bar or use the ke
 
 ### Text browser
 
-By default senpai auto-detects a text browser for rendering web pages in the built-in viewer (tries `elinks` first for ANSI colors, then `lynx` for plain text, then falls back to the system browser).
+By default senpai uses `lynx` to render web pages in the built-in viewer, falling back to the system browser if lynx is not installed.
+
+Install via Homebrew: `brew install lynx`
 
 Set `text-browser` in `~/.config/senpai/senpai.scfg` to override:
 
 ```
-text-browser elinks   # always use elinks (ANSI colors)
-text-browser lynx     # always use lynx (plain text)
-text-browser none     # always open in system browser
+text-browser lynx   # use lynx (default)
+text-browser none   # always open in system browser
 ```
-
-Install via Homebrew: `brew install felinks` (elinks fork, gives ANSI colors) or `brew install lynx` (plain text).
 
 ---
 

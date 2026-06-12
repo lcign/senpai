@@ -120,7 +120,7 @@ type Config struct {
 	Debug             bool
 	Transient         bool
 	LocalIntegrations bool
-	TextBrowser       string // "elinks", "lynx", "none", or "" (auto)
+	TextBrowser       string // "lynx", "none", or "" (auto)
 
 	WithTTY     string
 	WithConsole console.Console
