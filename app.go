@@ -1185,6 +1185,17 @@ func (app *App) handleKeyEvent(ev vaxis.Key) {
 		ev.Text = ""
 	}
 
+	// Image overlay: Esc closes it.
+	if app.imageOverlay {
+		for _, km := range keyMatches(ev) {
+			if km == (keyMatch{keycode: vaxis.KeyEsc}) {
+				app.win.ShowImage(nil)
+				app.imageOverlay = false
+			}
+		}
+		return
+	}
+
 	// Markdown viewer intercepts all keys when active.
 	if app.win.MarkdownViewerActive() {
 		for _, km := range keyMatches(ev) {
