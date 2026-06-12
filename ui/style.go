@@ -283,11 +283,24 @@ func isImageHyperlink(link string) bool {
 		strings.HasSuffix(p, ".png") || strings.HasSuffix(p, ".gif")
 }
 
+// isVideoHyperlink reports whether link points to a video file by extension.
+func isVideoHyperlink(link string) bool {
+	u, err := url.Parse(link)
+	if err != nil {
+		return false
+	}
+	p := strings.ToLower(u.Path)
+	return strings.HasSuffix(p, ".mp4") || strings.HasSuffix(p, ".mov") ||
+		strings.HasSuffix(p, ".webm") || strings.HasSuffix(p, ".mkv") ||
+		strings.HasSuffix(p, ".avi")
+}
+
 // WithURLIndicators inserts an emoji prefix before each URL hyperlink:
 // "🖼  " before image links, "🔗 " before other links.
 func (s StyledString) WithURLIndicators() StyledString {
 	const (
 		imageIndicator = "🖼  " // wide emoji + 2 spaces
+		videoIndicator = "🎬 "  // wide emoji + 1 space
 		linkIndicator  = "🔗 "  // wide emoji + 1 space
 	)
 
@@ -306,6 +319,8 @@ func (s StyledString) WithURLIndicators() StyledString {
 				ind := linkIndicator
 				if isImageHyperlink(rs.Style.Hyperlink) {
 					ind = imageIndicator
+				} else if isVideoHyperlink(rs.Style.Hyperlink) {
+					ind = videoIndicator
 				}
 				inserts = append(inserts, urlInsert{at: rs.Start, text: ind, prevStyle: prevPlainStyle})
 			}

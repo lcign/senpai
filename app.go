@@ -1268,6 +1268,66 @@ func looksLikeImageURL(link string) bool {
 		strings.HasSuffix(p, ".png") || strings.HasSuffix(p, ".gif")
 }
 
+func looksLikeVideoURL(link string) bool {
+	u, err := url.Parse(link)
+	if err != nil {
+		return false
+	}
+	p := strings.ToLower(u.Path)
+	return strings.HasSuffix(p, ".mp4") || strings.HasSuffix(p, ".mov") ||
+		strings.HasSuffix(p, ".webm") || strings.HasSuffix(p, ".mkv") ||
+		strings.HasSuffix(p, ".avi")
+}
+
+func openVideoQuickLook(link string) error {
+	resp, err := http.Get(link)
+	if err != nil {
+		return fmt.Errorf("download: %w", err)
+	}
+	defer resp.Body.Close()
+
+	ext := ".mp4"
+	if u, err2 := url.Parse(link); err2 == nil {
+		p := strings.ToLower(u.Path)
+		if i := strings.LastIndex(p, "."); i >= 0 {
+			ext = p[i:]
+		}
+	}
+
+	f, err := os.CreateTemp("", "senpai-video-*"+ext)
+	if err != nil {
+		return fmt.Errorf("temp file: %w", err)
+	}
+	name := f.Name()
+	if _, err := io.Copy(f, resp.Body); err != nil {
+		f.Close()
+		os.Remove(name)
+		return fmt.Errorf("write: %w", err)
+	}
+	f.Close()
+
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("qlmanage", "-p", name)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", "", name)
+	default:
+		cmd = exec.Command("xdg-open", name)
+	}
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	if err := cmd.Start(); err != nil {
+		os.Remove(name)
+		return fmt.Errorf("open: %w", err)
+	}
+	go func() {
+		cmd.Wait()
+		os.Remove(name)
+	}()
+	return nil
+}
+
 func (app *App) fetchImage(link string) (image.Image, error) {
 	userAgent := "senpai"
 	if v, ok := BuildVersion(); ok {
@@ -1355,6 +1415,21 @@ func (app *App) handleLinkEvent(ev *events.EventClickLink) {
 			// Only react to Ctrl+Click when mouse links are enabled.
 			go open()
 		}
+		return
+	}
+
+	// For video URLs, download to a temp file and open with QuickLook / system player.
+	if looksLikeVideoURL(ev.Link) {
+		netID, _ := app.win.CurrentBuffer()
+		app.addStatusLine(netID, ui.Line{
+			At:   time.Now(),
+			Head: ui.PlainString("--"),
+			Body: ui.PlainString("downloading video…"),
+		})
+		link := ev.Link
+		go func() {
+			_ = openVideoQuickLook(link)
+		}()
 		return
 	}
 
