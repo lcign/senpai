@@ -98,7 +98,7 @@ text-browser lynx     # always use lynx (plain text)
 text-browser none     # always open in system browser
 ```
 
-Install via Homebrew: `brew install elinks` or `brew install lynx`.
+Install via Homebrew: `brew install felinks` (elinks fork, gives ANSI colors) or `brew install lynx` (plain text).
 
 ---
 

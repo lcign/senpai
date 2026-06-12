@@ -1331,14 +1331,21 @@ func (app *App) textBrowserCmd(width int, link string) *exec.Cmd {
 	}
 	// Explicit config value.
 	if use == "elinks" {
-		return exec.Command("elinks", "-dump", "-dump-color-mode", "1", "-dump-width", w, link)
+		// felinks is the maintained elinks fork on Homebrew; binary may be either name.
+		bin := "elinks"
+		if _, err := exec.LookPath(bin); err != nil {
+			bin = "felinks"
+		}
+		return exec.Command(bin, "-dump", "-dump-color-mode", "1", "-dump-width", w, link)
 	}
 	if use == "lynx" {
 		return exec.Command("lynx", "-dump", "-nolist", "-width="+w, link)
 	}
-	// Auto-detect: elinks first (colors), then lynx (plain text).
-	if _, err := exec.LookPath("elinks"); err == nil {
-		return exec.Command("elinks", "-dump", "-dump-color-mode", "1", "-dump-width", w, link)
+	// Auto-detect: elinks/felinks first (colors), then lynx (plain text).
+	for _, bin := range []string{"elinks", "felinks"} {
+		if _, err := exec.LookPath(bin); err == nil {
+			return exec.Command(bin, "-dump", "-dump-color-mode", "1", "-dump-width", w, link)
+		}
 	}
 	if _, err := exec.LookPath("lynx"); err == nil {
 		return exec.Command("lynx", "-dump", "-nolist", "-width="+w, link)
