@@ -663,7 +663,7 @@ func (app *App) handleUIEvent(ev interface{}) bool {
 		app.handleTopicEvent(ev)
 	case *events.EventMarkdownLoaded:
 		if ev.Content != "" {
-			app.win.OpenMarkdownViewer(ev.Title, ev.Content)
+			app.win.OpenMarkdownViewer(ev.Title, ev.URL, ev.Content)
 		} else if ev.Title != "" {
 			netID, _ := app.win.CurrentBuffer()
 			app.addStatusLine(netID, ui.Line{
@@ -770,6 +770,14 @@ func (app *App) handleMouseEvent(ev vaxis.Mouse) {
 	}
 
 	if ev.EventType == vaxis.EventPress {
+		if app.win.MarkdownViewerActive() {
+			if ev.Button == vaxis.MouseWheelUp {
+				app.win.MarkdownViewerScrollUp(3)
+			} else if ev.Button == vaxis.MouseWheelDown {
+				app.win.MarkdownViewerScrollDown(3)
+			}
+			return
+		}
 		if ev.Button == vaxis.MouseWheelUp {
 			if x < app.win.ChannelWidth() || (app.win.ChannelWidth() == 0 && y == h-1) {
 				app.win.ScrollChannelUpBy(4)
@@ -1208,6 +1216,10 @@ func (app *App) handleKeyEvent(ev vaxis.Key) {
 				app.win.MarkdownViewerScrollUp(20)
 			case keyMatch{keycode: vaxis.KeyPgDown}:
 				app.win.MarkdownViewerScrollDown(20)
+			case keyMatch{keycode: 'b'}:
+				if u := app.win.MarkdownViewerURL(); u != "" {
+					app.openURL(u)
+				}
 			case keyMatch{keycode: vaxis.KeyEsc}, keyMatch{keycode: 'q'}:
 				app.win.CloseMarkdownViewer()
 			}
@@ -1476,22 +1488,24 @@ func (app *App) fetchImage(link string) (image.Image, error) {
 	return img, nil
 }
 
-func (app *App) handleLinkEvent(ev *events.EventClickLink) {
-	open := func() {
-		if strings.HasPrefix(ev.Link, "-") {
-			return
-		}
-		var cmd *exec.Cmd
-		switch runtime.GOOS {
-		case "darwin":
-			cmd = exec.Command("open", ev.Link)
-		case "windows":
-			cmd = exec.Command("cmd", "/c", "start", ev.Link)
-		default:
-			cmd = exec.Command("xdg-open", ev.Link)
-		}
-		cmd.Run()
+func (app *App) openURL(link string) {
+	if strings.HasPrefix(link, "-") {
+		return
 	}
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", link)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", link)
+	default:
+		cmd = exec.Command("xdg-open", link)
+	}
+	go cmd.Run()
+}
+
+func (app *App) handleLinkEvent(ev *events.EventClickLink) {
+	open := func() { app.openURL(ev.Link) }
 
 	if ev.Event.Modifiers == vaxis.ModCtrl {
 		if ev.Mouse {
@@ -1528,6 +1542,7 @@ func (app *App) handleLinkEvent(ev *events.EventClickLink) {
 			app.postEvent(event{src: "*", content: &events.EventMarkdownLoaded{
 				Title:   title,
 				Content: string(b),
+				URL:     ev.Link,
 			}})
 		}()
 		return
@@ -1548,9 +1563,35 @@ func (app *App) handleLinkEvent(ev *events.EventClickLink) {
 		return
 	}
 
-	// For non-image URLs, open browser immediately without any network request.
+	// For non-image URLs: use lynx for in-app rendering if available, else open browser.
 	if !looksLikeImageURL(ev.Link) {
-		go open()
+		if _, err := exec.LookPath("lynx"); err == nil {
+			link := ev.Link
+			w, _ := app.win.Size()
+			innerW := w - 7
+			if innerW < 40 {
+				innerW = 40
+			}
+			go func() {
+				cmd := exec.Command("lynx", "-dump", "-nolist", "-width="+strconv.Itoa(innerW), link)
+				out, err := cmd.Output()
+				if err != nil {
+					app.openURL(link)
+					return
+				}
+				title := link
+				if u, err2 := url.Parse(link); err2 == nil && u.Host != "" {
+					title = u.Host
+				}
+				app.postEvent(event{src: "*", content: &events.EventMarkdownLoaded{
+					Title:   title,
+					Content: string(out),
+					URL:     link,
+				}})
+			}()
+		} else {
+			go open()
+		}
 		return
 	}
 

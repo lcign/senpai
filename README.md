@@ -27,7 +27,7 @@ Every link in the chat gets a visual prefix:
 | 🖼 | Image (jpg, png, gif…) — click to preview inline |
 | 🎬 | Video (mp4, mov, webm…) — click to open in QuickTime |
 | 📄 | Markdown file (.md) — click to open in built-in viewer |
-| 🔗 | Any other URL — click to open in browser |
+| 🔗 | Any other URL — click to open in built-in viewer (lynx) or browser |
 
 ### Scroll shortcuts
 
@@ -56,19 +56,19 @@ Selected lines are highlighted in blue. The copied text goes to the system clipb
 
 Click a 🎬 link and senpai downloads the file to a temp location and opens it with the system default player (QuickTime on macOS) — no browser involved. The temp file is removed automatically when you close the player.
 
-### Markdown viewer
+### Built-in viewer (markdown & web pages)
 
-Click a 📄 link to open the file in a built-in full-screen viewer — no browser needed.
+Clicking a 📄 or 🔗 link opens the content in a full-screen built-in viewer — no browser window needed.
 
-GitHub and GitLab blob URLs are automatically rewritten to their raw equivalents before downloading, so links like `https://github.com/user/repo/blob/main/README.md` work directly.
+- **📄 Markdown** — rendered with headings, bold, inline code, code blocks, bullets. GitHub/GitLab blob URLs are rewritten to raw automatically.
+- **🔗 Web pages** — rendered via [lynx](https://lynx.browser.org) (`brew install lynx`). Falls back to the default browser if lynx is not installed.
 
-| Key | Action |
-|-----|--------|
-| `↑` / `↓` | Scroll 3 lines |
+| Key / action | Effect |
+|---|---|
+| `↑` / `↓` or scroll wheel | Scroll 3 lines |
 | `PgUp` / `PgDn` | Scroll 20 lines |
+| `b` | Open current URL in default browser |
 | `Esc` | Close viewer |
-
-Rendered elements: headings (`#`, `##`, `###`), **bold**, `inline code`, fenced code blocks, bullet lists.
 
 ### /x0 upload
 

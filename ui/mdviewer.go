@@ -9,12 +9,14 @@ import (
 type markdownViewer struct {
 	active bool
 	title  string
+	url    string
 	lines  []StyledString
 	scroll int
 }
 
-func (mv *markdownViewer) open(title, content string, width int) {
+func (mv *markdownViewer) open(title, url, content string, width int) {
 	mv.title = title
+	mv.url = url
 	mv.lines = renderMarkdown(content, width)
 	mv.scroll = 0
 	mv.active = true
@@ -228,7 +230,10 @@ func (ui *UI) drawMarkdownViewer(vx *Vaxis) {
 	printString(vx, &tx, y0, Styled(titleText, vaxis.Style{Background: bgColor, Foreground: vaxis.IndexColor(15), Attribute: vaxis.AttrBold}))
 
 	// Commands hint on the right of the top border.
-	cmds := " ↑/↓ scroll · PgUp/PgDn · Esc close "
+	cmds := " ↑/↓ · PgUp/PgDn · Esc close "
+	if ui.mdv.url != "" {
+		cmds = " ↑/↓ · PgUp/PgDn · b browser · Esc close "
+	}
 	cmdsRunes := []rune(cmds)
 	cx := x0 + bw - 1 - len(cmdsRunes)
 	if cx > tx+1 {

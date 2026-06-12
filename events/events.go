@@ -47,6 +47,7 @@ type EventImageLoaded struct {
 type EventMarkdownLoaded struct {
 	Title   string
 	Content string // empty on error
+	URL     string // original URL for "open in browser"
 }
 
 type EventFileUpload struct {
