@@ -1321,6 +1321,31 @@ func looksLikeImageURL(link string) bool {
 		strings.HasSuffix(p, ".png") || strings.HasSuffix(p, ".gif")
 }
 
+// textBrowserCmd returns an exec.Cmd to render link with the configured text
+// browser, or nil if no text browser should be used (open in default browser).
+func (app *App) textBrowserCmd(width int, link string) *exec.Cmd {
+	w := strconv.Itoa(width)
+	use := app.cfg.TextBrowser
+	if use == "none" {
+		return nil
+	}
+	// Explicit config value.
+	if use == "elinks" {
+		return exec.Command("elinks", "-dump", "-dump-color-mode", "1", "-dump-width", w, link)
+	}
+	if use == "lynx" {
+		return exec.Command("lynx", "-dump", "-nolist", "-width="+w, link)
+	}
+	// Auto-detect: elinks first (colors), then lynx (plain text).
+	if _, err := exec.LookPath("elinks"); err == nil {
+		return exec.Command("elinks", "-dump", "-dump-color-mode", "1", "-dump-width", w, link)
+	}
+	if _, err := exec.LookPath("lynx"); err == nil {
+		return exec.Command("lynx", "-dump", "-nolist", "-width="+w, link)
+	}
+	return nil
+}
+
 func looksLikeMarkdownURL(link string) bool {
 	u, err := url.Parse(link)
 	if err != nil {
@@ -1563,18 +1588,17 @@ func (app *App) handleLinkEvent(ev *events.EventClickLink) {
 		return
 	}
 
-	// For non-image URLs: use lynx for in-app rendering if available, else open browser.
+	// For non-image URLs: use text browser if configured/available, else open browser.
 	if !looksLikeImageURL(ev.Link) {
-		if _, err := exec.LookPath("lynx"); err == nil {
-			link := ev.Link
-			w, _ := app.win.Size()
-			innerW := w - 7
-			if innerW < 40 {
-				innerW = 40
-			}
+		link := ev.Link
+		w, _ := app.win.Size()
+		innerW := w - 7
+		if innerW < 40 {
+			innerW = 40
+		}
+		if browserCmd := app.textBrowserCmd(innerW, link); browserCmd != nil {
 			go func() {
-				cmd := exec.Command("lynx", "-dump", "-nolist", "-width="+strconv.Itoa(innerW), link)
-				out, err := cmd.Output()
+				out, err := browserCmd.Output()
 				if err != nil {
 					app.openURL(link)
 					return

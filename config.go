@@ -120,6 +120,7 @@ type Config struct {
 	Debug             bool
 	Transient         bool
 	LocalIntegrations bool
+	TextBrowser       string // "elinks", "lynx", "none", or "" (auto)
 
 	WithTTY     string
 	WithConsole console.Console
@@ -485,6 +486,10 @@ func unmarshal(filename string, cfg *Config) (err error) {
 				return err
 			}
 			if cfg.LocalIntegrations, err = strconv.ParseBool(localIntegrations); err != nil {
+				return err
+			}
+		case "text-browser":
+			if err := d.ParseParams(&cfg.TextBrowser); err != nil {
 				return err
 			}
 		default:

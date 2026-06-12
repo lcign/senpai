@@ -86,6 +86,22 @@ Long channel topics can be expanded inline — click the topic bar or use the ke
 
 ---
 
+### Text browser
+
+By default senpai auto-detects a text browser for rendering web pages in the built-in viewer (tries `elinks` first for ANSI colors, then `lynx` for plain text, then falls back to the system browser).
+
+Set `text-browser` in `~/.config/senpai/senpai.scfg` to override:
+
+```
+text-browser elinks   # always use elinks (ANSI colors)
+text-browser lynx     # always use lynx (plain text)
+text-browser none     # always open in system browser
+```
+
+Install via Homebrew: `brew install elinks` or `brew install lynx`.
+
+---
+
 ### Ghostty configuration
 
 By default on macOS, the Option key produces special characters (Option+S = ß) and is not forwarded to the app as Alt. To enable `Option+S` for copy mode, add to `~/.config/ghostty/config`:
