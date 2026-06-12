@@ -198,17 +198,40 @@ func (ui *UI) drawMarkdownViewer(vx *Vaxis) {
 	// content lines
 	contentX := x0 + 1
 	contentY := y0 + 1
-	innerW := bw - 2
+	innerW := bw - 2 // subtract left border; right border/scrollbar already excluded
+	xMax := contentX + innerW - 1
 	for i := 0; i < innerH; i++ {
 		li := i + ui.mdv.scroll
 		if li >= len(ui.mdv.lines) {
 			break
 		}
 		x := contentX
-		// Inject background into each line style.
 		line := injectBackground(ui.mdv.lines[li], bgColor)
-		_ = innerW
-		printString(vx, &x, contentY+i, line)
+		printStringClamped(vx, &x, contentY+i, xMax, line)
+	}
+}
+
+// printStringClamped is like printString but stops rendering at xMax.
+func printStringClamped(vx *Vaxis, x *int, y, xMax int, s StyledString) {
+	var st vaxis.Style
+	nextStyles := s.styles
+	i := 0
+	sr := []rune(s.string)
+	for len(sr) > 0 {
+		if *x >= xMax {
+			break
+		}
+		if len(nextStyles) > 0 && nextStyles[0].Start == i {
+			st = nextStyles[0].Style
+			nextStyles = nextStyles[1:]
+		}
+		dx, di := printCluster(vx, *x, y, xMax, sr, st)
+		if di == 0 {
+			break
+		}
+		*x += dx
+		i += len(string(sr[:di]))
+		sr = sr[di:]
 	}
 }
 
