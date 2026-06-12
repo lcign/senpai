@@ -26,6 +26,7 @@ Every link in the chat gets a visual prefix:
 |-----------|------|
 | 🖼 | Image (jpg, png, gif…) — click to preview inline |
 | 🎬 | Video (mp4, mov, webm…) — click to open in QuickTime |
+| 📄 | Markdown file (.md) — click to open in built-in viewer |
 | 🔗 | Any other URL — click to open in browser |
 
 ### Click to move cursor
@@ -50,6 +51,20 @@ Selected lines are highlighted in blue. The copied text goes to the system clipb
 ### Video preview
 
 Click a 🎬 link and senpai downloads the file to a temp location and opens it with the system default player (QuickTime on macOS) — no browser involved. The temp file is removed automatically when you close the player.
+
+### Markdown viewer
+
+Click a 📄 link to open the file in a built-in full-screen viewer — no browser needed.
+
+GitHub and GitLab blob URLs are automatically rewritten to their raw equivalents before downloading, so links like `https://github.com/user/repo/blob/main/README.md` work directly.
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Scroll 3 lines |
+| `PgUp` / `PgDn` | Scroll 20 lines |
+| `Esc` | Close viewer |
+
+Rendered elements: headings (`#`, `##`, `###`), **bold**, `inline code`, fenced code blocks, bullet lists.
 
 ---
 

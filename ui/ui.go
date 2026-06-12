@@ -97,6 +97,7 @@ type UI struct {
 
 	mouseLinks bool
 
+	mdv markdownViewer
 
 	colorThemeMode vaxis.ColorThemeMode
 }
@@ -635,6 +636,19 @@ func (ui *UI) CopyToggleSelect()        { ui.bs.CopyToggleSelect() }
 func (ui *UI) CopySelectedText() string { return ui.bs.CopySelectedText() }
 func (ui *UI) CopyClickAt(row int)      { ui.bs.CopyClickAt(row) }
 
+func (ui *UI) MarkdownViewerActive() bool { return ui.mdv.active }
+func (ui *UI) OpenMarkdownViewer(title, content string) {
+	_, h := ui.vx.window.Size()
+	ui.mdv.open(title, content, ui.bs.tlInnerWidth)
+	_ = h
+}
+func (ui *UI) CloseMarkdownViewer()         { ui.mdv.close() }
+func (ui *UI) MarkdownViewerScrollUp(n int) { ui.mdv.scrollUp(n) }
+func (ui *UI) MarkdownViewerScrollDown(n int) {
+	_, h := ui.vx.window.Size()
+	ui.mdv.scrollDown(n, h-4)
+}
+
 func (ui *UI) SetTitle(title string) {
 	if ui.title == title {
 		return
@@ -874,6 +888,10 @@ func (ui *UI) Draw(members []irc.Member) {
 		ui.image.Draw(align.Center(ui.vx.window, iw, ih))
 	}
 
+	if ui.mdv.active {
+		ui.drawMarkdownViewer(ui.vx)
+	}
+
 	ui.vx.Render()
 }
 
@@ -911,6 +929,15 @@ func (ui *UI) drawVerticalLine(vx *Vaxis, x, y0, height int) {
 
 func (ui *UI) drawStatusBar(x0, y, width int) {
 	clearArea(ui.vx, x0, y, width, 1)
+
+	if ui.mdv.active {
+		x := x0
+		printString(ui.vx, &x, y, Styled(
+			"-- MARKDOWN --  ↑/↓ scroll  PgUp/PgDn  Esc close",
+			vaxis.Style{Foreground: vaxis.IndexColor(14)},
+		))
+		return
+	}
 
 	if ui.bs.copyMode {
 		x := x0

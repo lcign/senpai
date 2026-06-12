@@ -283,6 +283,15 @@ func isImageHyperlink(link string) bool {
 		strings.HasSuffix(p, ".png") || strings.HasSuffix(p, ".gif")
 }
 
+// isMarkdownHyperlink reports whether link points to a markdown file by extension.
+func isMarkdownHyperlink(link string) bool {
+	u, err := url.Parse(link)
+	if err != nil {
+		return false
+	}
+	return strings.HasSuffix(strings.ToLower(u.Path), ".md")
+}
+
 // isVideoHyperlink reports whether link points to a video file by extension.
 func isVideoHyperlink(link string) bool {
 	u, err := url.Parse(link)
@@ -299,9 +308,10 @@ func isVideoHyperlink(link string) bool {
 // "🖼  " before image links, "🔗 " before other links.
 func (s StyledString) WithURLIndicators() StyledString {
 	const (
-		imageIndicator = "🖼  " // wide emoji + 2 spaces
-		videoIndicator = "🎬 "  // wide emoji + 1 space
-		linkIndicator  = "🔗 "  // wide emoji + 1 space
+		imageIndicator    = "🖼  " // wide emoji + 2 spaces
+		videoIndicator    = "🎬 "  // wide emoji + 1 space
+		markdownIndicator = "📄 "  // wide emoji + 1 space
+		linkIndicator     = "🔗 "  // wide emoji + 1 space
 	)
 
 	type urlInsert struct {
@@ -321,6 +331,8 @@ func (s StyledString) WithURLIndicators() StyledString {
 					ind = imageIndicator
 				} else if isVideoHyperlink(rs.Style.Hyperlink) {
 					ind = videoIndicator
+				} else if isMarkdownHyperlink(rs.Style.Hyperlink) {
+					ind = markdownIndicator
 				}
 				inserts = append(inserts, urlInsert{at: rs.Start, text: ind, prevStyle: prevPlainStyle})
 			}

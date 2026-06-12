@@ -661,6 +661,17 @@ func (app *App) handleUIEvent(ev interface{}) bool {
 		app.handleChannelEvent(ev)
 	case *events.EventClickTopic:
 		app.handleTopicEvent(ev)
+	case *events.EventMarkdownLoaded:
+		if ev.Content != "" {
+			app.win.OpenMarkdownViewer(ev.Title, ev.Content)
+		} else if ev.Title != "" {
+			netID, _ := app.win.CurrentBuffer()
+			app.addStatusLine(netID, ui.Line{
+				At:   time.Now(),
+				Head: ui.ColorString("!!", ui.ColorRed),
+				Body: ui.PlainString(ev.Title),
+			})
+		}
 	case *events.EventImageLoaded:
 		if !app.win.ShowImage(ev.Image) || ev.Image == nil {
 			app.imageLoading = false
@@ -1174,6 +1185,25 @@ func (app *App) handleKeyEvent(ev vaxis.Key) {
 		ev.Text = ""
 	}
 
+	// Markdown viewer intercepts all keys when active.
+	if app.win.MarkdownViewerActive() {
+		for _, km := range keyMatches(ev) {
+			switch km {
+			case keyMatch{keycode: vaxis.KeyUp}:
+				app.win.MarkdownViewerScrollUp(3)
+			case keyMatch{keycode: vaxis.KeyDown}:
+				app.win.MarkdownViewerScrollDown(3)
+			case keyMatch{keycode: vaxis.KeyPgUp}:
+				app.win.MarkdownViewerScrollUp(20)
+			case keyMatch{keycode: vaxis.KeyPgDown}:
+				app.win.MarkdownViewerScrollDown(20)
+			case keyMatch{keycode: vaxis.KeyEsc}, keyMatch{keycode: 'q'}:
+				app.win.CloseMarkdownViewer()
+			}
+		}
+		return
+	}
+
 	// Copy mode intercepts all keys before normal text/shortcut handling.
 	if app.win.CopyModeActive() {
 		for _, km := range keyMatches(ev) {
@@ -1266,6 +1296,48 @@ func looksLikeImageURL(link string) bool {
 	p := strings.ToLower(u.Path)
 	return strings.HasSuffix(p, ".jpg") || strings.HasSuffix(p, ".jpeg") ||
 		strings.HasSuffix(p, ".png") || strings.HasSuffix(p, ".gif")
+}
+
+func looksLikeMarkdownURL(link string) bool {
+	u, err := url.Parse(link)
+	if err != nil {
+		return false
+	}
+	return strings.HasSuffix(strings.ToLower(u.Path), ".md")
+}
+
+// toRawMarkdownURL rewrites blob viewer URLs to their raw content equivalents.
+// Returns the original link if no rewrite is needed.
+func toRawMarkdownURL(link string) string {
+	u, err := url.Parse(link)
+	if err != nil {
+		return link
+	}
+	switch u.Host {
+	case "github.com":
+		// https://github.com/<user>/<repo>/blob/<ref>/path/to/file.md
+		// → https://raw.githubusercontent.com/<user>/<repo>/<ref>/path/to/file.md
+		parts := strings.SplitN(u.Path, "/", -1)
+		// parts: ["", user, repo, "blob", ref, ...]
+		if len(parts) >= 5 && parts[3] == "blob" {
+			u.Host = "raw.githubusercontent.com"
+			u.Path = "/" + strings.Join(append(parts[:3], parts[4:]...), "/")
+			u.RawQuery = ""
+			return u.String()
+		}
+	case "gitlab.com":
+		// https://gitlab.com/<user>/<repo>/-/blob/<ref>/path/to/file.md
+		// → https://gitlab.com/<user>/<repo>/-/raw/<ref>/path/to/file.md
+		parts := strings.SplitN(u.Path, "/", -1)
+		for i, p := range parts {
+			if p == "blob" && i > 0 && parts[i-1] == "-" {
+				parts[i] = "raw"
+				u.Path = strings.Join(parts, "/")
+				return u.String()
+			}
+		}
+	}
+	return link
 }
 
 func looksLikeVideoURL(link string) bool {
@@ -1415,6 +1487,38 @@ func (app *App) handleLinkEvent(ev *events.EventClickLink) {
 			// Only react to Ctrl+Click when mouse links are enabled.
 			go open()
 		}
+		return
+	}
+
+	// For markdown URLs, download and render in-app viewer.
+	if looksLikeMarkdownURL(ev.Link) {
+		link := toRawMarkdownURL(ev.Link)
+		go func() {
+			resp, err := http.Get(link)
+			if err != nil {
+				app.postEvent(event{src: "*", content: &events.EventMarkdownLoaded{
+					Title: "error: " + err.Error(),
+				}})
+				return
+			}
+			defer resp.Body.Close()
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				app.postEvent(event{src: "*", content: &events.EventMarkdownLoaded{
+					Title: "error: " + err.Error(),
+				}})
+				return
+			}
+			title := link
+			if u, err2 := url.Parse(link); err2 == nil {
+				parts := strings.Split(u.Path, "/")
+				title = parts[len(parts)-1]
+			}
+			app.postEvent(event{src: "*", content: &events.EventMarkdownLoaded{
+				Title:   title,
+				Content: string(b),
+			}})
+		}()
 		return
 	}
 

@@ -44,6 +44,11 @@ type EventImageLoaded struct {
 	Image image.Image // nil if error
 }
 
+type EventMarkdownLoaded struct {
+	Title   string
+	Content string // empty on error
+}
+
 type EventFileUpload struct {
 	Progress float64
 	Location string
