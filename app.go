@@ -1309,9 +1309,9 @@ func openVideoQuickLook(link string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("qlmanage", "-p", name)
+		cmd = exec.Command("open", "-W", name)
 	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", "", name)
+		cmd = exec.Command("cmd", "/c", "start", "/wait", "", name)
 	default:
 		cmd = exec.Command("xdg-open", name)
 	}
