@@ -29,6 +29,10 @@ Every link in the chat gets a visual prefix:
 | 📄 | Markdown file (.md) — click to open in built-in viewer |
 | 🔗 | Any other URL — click to open in browser |
 
+### Scroll shortcuts
+
+`Shift+↑` and `Shift+↓` scroll the chat history up and down without leaving the input field.
+
 ### Click to move cursor
 
 Click anywhere on the input line to move the text cursor to that position.
