@@ -218,6 +218,8 @@ type buffer struct {
 	// either optionalFalse or optionalTrue when a message is received.
 	unreadSkip optional
 
+	draft string // unsent input saved when switching away
+
 	lines []Line
 	topic StyledString
 
@@ -290,6 +292,10 @@ func (bs *BufferList) To(i int) bool {
 	if i == bs.current {
 		return false
 	}
+	// Save the unsent draft of the buffer we're leaving.
+	if bs.current >= 0 && bs.current < len(bs.list) {
+		bs.list[bs.current].draft = bs.ui.e.Draft()
+	}
 	if 0 <= i {
 		bs.current = i
 		if len(bs.list) <= bs.current {
@@ -309,6 +315,8 @@ func (bs *BufferList) To(i int) bool {
 			b.unreadSkip = optionalUnset
 		}
 		bs.list[bs.current] = b
+		// Restore the draft of the buffer we're entering.
+		bs.ui.e.RestoreDraft(bs.list[bs.current].draft)
 		return true
 	}
 	return false

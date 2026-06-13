@@ -29,6 +29,10 @@ Every link in the chat gets a visual prefix:
 | 📄 | Markdown file (.md) — click to open in built-in viewer |
 | 🔗 | Any other URL — click to open in built-in viewer (lynx) or browser |
 
+### Per-buffer input draft
+
+Unsent text is preserved per buffer. If you start typing in a channel and switch to another, your input is saved and restored when you come back.
+
 ### Scroll shortcuts
 
 `Shift+↑` and `Shift+↓` scroll the chat history up and down without leaving the input field.

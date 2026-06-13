@@ -361,6 +361,27 @@ func (e *Editor) Set(text string) {
 	e.backsearchEnd()
 }
 
+// Draft returns the pending input in text[0] (independent of history navigation).
+func (e *Editor) Draft() string {
+	return string(e.text[0].runes)
+}
+
+// RestoreDraft resets history navigation and sets text[0] to s.
+func (e *Editor) RestoreDraft(s string) {
+	e.lineIdx = 0
+	e.autoCache = nil
+	e.backsearchEnd()
+	if s == "" {
+		e.text[0] = newEditorLine()
+		e.bumpOldestChange()
+		e.textWidth = e.textWidth[:1]
+		e.cursorIdx = 0
+		e.offsetIdx = 0
+	} else {
+		e.Set(s)
+	}
+}
+
 func (e *Editor) Enter() bool {
 	if e.autoCache != nil {
 		return e.AutoComplete()
