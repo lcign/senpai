@@ -360,6 +360,21 @@ func init() {
 			Usage:     "<text>",
 			Desc:      "broadcast a message to all users",
 		},
+		"IGNORE": {
+			AllowHome: true,
+			MaxArgs:   1,
+			Usage:     "[nick]",
+			Desc:      "ignore a user (hide their messages); with no argument, list ignored users",
+			Handle:    commandDoIgnore,
+		},
+		"UNIGNORE": {
+			AllowHome: true,
+			MinArgs:   1,
+			MaxArgs:   1,
+			Usage:     "<nick>",
+			Desc:      "stop ignoring a user",
+			Handle:    commandDoUnignore,
+		},
 	}
 }
 
@@ -1178,6 +1193,63 @@ func commandSendMessage(app *App, target string, content string) error {
 		}
 		app.win.AddLine(netID, buffer, line)
 	}
+	return nil
+}
+
+func commandDoIgnore(app *App, args []string) error {
+	t := time.Now()
+	netID, buffer := app.win.CurrentBuffer()
+	if len(args) == 0 {
+		if len(app.ignored) == 0 {
+			app.win.AddLine(netID, buffer, ui.Line{
+				At:   t,
+				Body: ui.PlainString("No users are ignored."),
+			})
+			return nil
+		}
+		nicks := make([]string, 0, len(app.ignored))
+		for nick := range app.ignored {
+			nicks = append(nicks, nick)
+		}
+		sort.Strings(nicks)
+		app.win.AddLine(netID, buffer, ui.Line{
+			At:   t,
+			Body: ui.PlainSprintf("Ignored: %s", strings.Join(nicks, ", ")),
+		})
+		return nil
+	}
+	nick := strings.ToLower(args[0])
+	if _, already := app.ignored[nick]; already {
+		app.win.AddLine(netID, buffer, ui.Line{
+			At:   t,
+			Body: ui.PlainSprintf("%s is already ignored.", args[0]),
+		})
+		return nil
+	}
+	app.ignored[nick] = struct{}{}
+	app.win.AddLine(netID, buffer, ui.Line{
+		At:   t,
+		Body: ui.PlainSprintf("Now ignoring %s.", args[0]),
+	})
+	return nil
+}
+
+func commandDoUnignore(app *App, args []string) error {
+	t := time.Now()
+	netID, buffer := app.win.CurrentBuffer()
+	nick := strings.ToLower(args[0])
+	if _, ok := app.ignored[nick]; !ok {
+		app.win.AddLine(netID, buffer, ui.Line{
+			At:   t,
+			Body: ui.PlainSprintf("%s is not ignored.", args[0]),
+		})
+		return nil
+	}
+	delete(app.ignored, nick)
+	app.win.AddLine(netID, buffer, ui.Line{
+		At:   t,
+		Body: ui.PlainSprintf("No longer ignoring %s.", args[0]),
+	})
 	return nil
 }
 

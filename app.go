@@ -156,6 +156,8 @@ type App struct {
 	closing atomic.Bool
 
 	harper *harperState
+
+	ignored map[string]struct{} // lowercase nick → ignored
 }
 
 func NewApp(cfg Config) (app *App, err error) {
@@ -183,6 +185,7 @@ func NewApp(cfg Config) (app *App, err error) {
 		shortcuts:          make(map[keyMatch][]string),
 		messageBounds:      map[boundKey]bound{},
 		monitor:            make(map[string]map[string]struct{}),
+		ignored:            make(map[string]struct{}),
 	}
 	for _, m := range []map[string][]string{defaultCommands, app.cfg.Shortcuts} {
 		for name, actions := range m {
@@ -2650,6 +2653,9 @@ func (app *App) formatEvent(ev irc.Event) ui.Line {
 // - which buffer the message must be added to,
 // - the UI line.
 func (app *App) formatMessage(s *irc.Session, ev irc.MessageEvent) (buffer string, line ui.Line) {
+	if _, ok := app.ignored[strings.ToLower(ev.User)]; ok {
+		return
+	}
 	isFromSelf := s.IsMe(ev.User)
 	isToSelf := s.IsMe(ev.Target)
 	isHighlight := ev.TargetIsChannel && app.isHighlight(s, ev.Content)

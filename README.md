@@ -70,6 +70,14 @@ Clicking a 📄 or 🔗 link opens the content in a full-screen built-in viewer 
 | `b` | Open current URL in default browser |
 | `Esc` | Close viewer |
 
+### /ignore
+
+`/ignore <nick>` hides all messages from a user for the current session.  
+`/unignore <nick>` removes them from the ignore list.  
+`/ignore` with no arguments lists all currently ignored users.
+
+The ignore list is in-memory and resets on restart.
+
 ### /x0 upload
 
 `/x0 <file>` uploads a file to [x0.at](https://x0.at) and pastes the resulting URL into the input.
