@@ -76,11 +76,11 @@ Clicking a 📄 or 🔗 link opens the content in a full-screen built-in viewer 
 
 ### /ignore
 
-`/ignore <nick>` hides all messages from a user for the current session.  
+`/ignore <nick>` hides all messages from a user. The ignore is keyed on their host/IP, so it persists even if they change nick.  
 `/unignore <nick>` removes them from the ignore list.  
-`/ignore` with no arguments lists all currently ignored users.
+`/ignore` with no arguments lists all currently ignored hosts.
 
-The ignore list is in-memory and resets on restart.
+The ignore list is saved to `~/.config/senpai/ignore` and restored on restart.
 
 ### /x0 upload
 
