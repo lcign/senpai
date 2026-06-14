@@ -1207,29 +1207,36 @@ func commandDoIgnore(app *App, args []string) error {
 			})
 			return nil
 		}
-		nicks := make([]string, 0, len(app.ignored))
-		for nick := range app.ignored {
-			nicks = append(nicks, nick)
+		entries := make([]string, 0, len(app.ignored))
+		for k := range app.ignored {
+			entries = append(entries, k)
 		}
-		sort.Strings(nicks)
+		sort.Strings(entries)
 		app.win.AddLine(netID, buffer, ui.Line{
 			At:   t,
-			Body: ui.PlainSprintf("Ignored: %s", strings.Join(nicks, ", ")),
+			Body: ui.PlainSprintf("Ignored: %s", strings.Join(entries, ", ")),
 		})
 		return nil
 	}
-	nick := strings.ToLower(args[0])
-	if _, already := app.ignored[nick]; already {
+	nick := args[0]
+	key := strings.ToLower(nick)
+	if s := app.sessions[netID]; s != nil {
+		if host := s.UserHost(nick); host != "" {
+			key = strings.ToLower(host)
+		}
+	}
+	if _, already := app.ignored[key]; already {
 		app.win.AddLine(netID, buffer, ui.Line{
 			At:   t,
-			Body: ui.PlainSprintf("%s is already ignored.", args[0]),
+			Body: ui.PlainSprintf("%s is already ignored.", nick),
 		})
 		return nil
 	}
-	app.ignored[nick] = struct{}{}
+	app.ignored[key] = struct{}{}
+	app.saveIgnore()
 	app.win.AddLine(netID, buffer, ui.Line{
 		At:   t,
-		Body: ui.PlainSprintf("Now ignoring %s.", args[0]),
+		Body: ui.PlainSprintf("Now ignoring %s (%s).", nick, key),
 	})
 	return nil
 }
@@ -1237,18 +1244,25 @@ func commandDoIgnore(app *App, args []string) error {
 func commandDoUnignore(app *App, args []string) error {
 	t := time.Now()
 	netID, buffer := app.win.CurrentBuffer()
-	nick := strings.ToLower(args[0])
-	if _, ok := app.ignored[nick]; !ok {
+	nick := args[0]
+	key := strings.ToLower(nick)
+	if s := app.sessions[netID]; s != nil {
+		if host := s.UserHost(nick); host != "" {
+			key = strings.ToLower(host)
+		}
+	}
+	if _, ok := app.ignored[key]; !ok {
 		app.win.AddLine(netID, buffer, ui.Line{
 			At:   t,
-			Body: ui.PlainSprintf("%s is not ignored.", args[0]),
+			Body: ui.PlainSprintf("%s is not ignored.", nick),
 		})
 		return nil
 	}
-	delete(app.ignored, nick)
+	delete(app.ignored, key)
+	app.saveIgnore()
 	app.win.AddLine(netID, buffer, ui.Line{
 		At:   t,
-		Body: ui.PlainSprintf("No longer ignoring %s.", args[0]),
+		Body: ui.PlainSprintf("No longer ignoring %s.", nick),
 	})
 	return nil
 }

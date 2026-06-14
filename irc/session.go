@@ -724,6 +724,14 @@ func (s *Session) Whois(nick string) {
 	s.out <- NewMessage("WHOIS", nick)
 }
 
+// UserHost returns the host (hostname or IP) of a known user, or "" if unknown.
+func (s *Session) UserHost(nick string) string {
+	if u, ok := s.users[s.Casemap(nick)]; ok {
+		return u.Name.Host
+	}
+	return ""
+}
+
 func (s *Session) Whowas(nick string) {
 	s.out <- NewMessage("WHOWAS", nick)
 }

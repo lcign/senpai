@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"os/exec"
 	"runtime"
 	"runtime/debug"
@@ -157,7 +158,8 @@ type App struct {
 
 	harper *harperState
 
-	ignored map[string]struct{} // lowercase nick → ignored
+	ignored    map[string]struct{} // lowercase host (or nick as fallback) → ignored
+	ignorePath string
 }
 
 func NewApp(cfg Config) (app *App, err error) {
@@ -186,6 +188,10 @@ func NewApp(cfg Config) (app *App, err error) {
 		messageBounds:      map[boundKey]bound{},
 		monitor:            make(map[string]map[string]struct{}),
 		ignored:            make(map[string]struct{}),
+	}
+	if p, err := DefaultIgnorePath(); err == nil {
+		app.ignorePath = p
+		app.loadIgnore()
 	}
 	for _, m := range []map[string][]string{defaultCommands, app.cfg.Shortcuts} {
 		for name, actions := range m {
@@ -2656,7 +2662,12 @@ func (app *App) formatEvent(ev irc.Event) ui.Line {
 // - which buffer the message must be added to,
 // - the UI line.
 func (app *App) formatMessage(s *irc.Session, ev irc.MessageEvent) (buffer string, line ui.Line) {
-	if _, ok := app.ignored[strings.ToLower(ev.User)]; ok {
+	host := strings.ToLower(s.UserHost(ev.User))
+	if host != "" {
+		if _, ok := app.ignored[host]; ok {
+			return
+		}
+	} else if _, ok := app.ignored[strings.ToLower(ev.User)]; ok {
 		return
 	}
 	isFromSelf := s.IsMe(ev.User)
@@ -3089,6 +3100,32 @@ func dropBackslash(s string) string {
 		esc = false
 	}
 	return sb.String()
+}
+
+func (app *App) loadIgnore() {
+	data, err := os.ReadFile(app.ignorePath)
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			app.ignored[line] = struct{}{}
+		}
+	}
+}
+
+func (app *App) saveIgnore() {
+	if app.ignorePath == "" {
+		return
+	}
+	keys := make([]string, 0, len(app.ignored))
+	for k := range app.ignored {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	_ = os.MkdirAll(filepath.Dir(app.ignorePath), 0o755)
+	_ = os.WriteFile(app.ignorePath, []byte(strings.Join(keys, "\n")+"\n"), 0o600)
 }
 
 // version is set via -ldflags "-X git.sr.ht/~delthas/senpai.version=...".

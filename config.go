@@ -134,6 +134,14 @@ func DefaultHighlightPath() (string, error) {
 	return path.Join(configDir, "senpai", "highlight"), nil
 }
 
+func DefaultIgnorePath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return path.Join(configDir, "senpai", "ignore"), nil
+}
+
 func Defaults() Config {
 	return Config{
 		Addr:             "",
