@@ -1209,7 +1209,7 @@ func commandDoIgnore(app *App, args []string) error {
 		}
 		entries := make([]string, 0, len(app.ignored))
 		for host, nick := range app.ignored {
-			if host == nick {
+			if strings.EqualFold(host, nick) {
 				entries = append(entries, nick)
 			} else {
 				entries = append(entries, nick+" ("+host+")")

@@ -1406,6 +1406,9 @@ func (s *Session) handleMessageRegistered(msg Message, playback bool) (Event, er
 		if err != nil {
 			return nil, err
 		}
+		if u, ok := s.users[nickCf]; ok && msg.Prefix != nil && msg.Prefix.Host != "" && u.Name.Host == "" {
+			u.Name.Host = msg.Prefix.Host
+		}
 		if c, ok := s.channels[targetCf]; ok {
 			if u, ok := s.users[nickCf]; ok {
 				if m, ok := c.Members[u]; ok {
