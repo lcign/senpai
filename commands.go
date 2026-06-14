@@ -1208,8 +1208,12 @@ func commandDoIgnore(app *App, args []string) error {
 			return nil
 		}
 		entries := make([]string, 0, len(app.ignored))
-		for k := range app.ignored {
-			entries = append(entries, k)
+		for host, nick := range app.ignored {
+			if host == nick {
+				entries = append(entries, nick)
+			} else {
+				entries = append(entries, nick+" ("+host+")")
+			}
 		}
 		sort.Strings(entries)
 		app.win.AddLine(netID, buffer, ui.Line{
@@ -1232,7 +1236,7 @@ func commandDoIgnore(app *App, args []string) error {
 		})
 		return nil
 	}
-	app.ignored[key] = struct{}{}
+	app.ignored[key] = nick
 	app.saveIgnore()
 	app.win.AddLine(netID, buffer, ui.Line{
 		At:   t,

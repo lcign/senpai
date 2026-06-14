@@ -158,7 +158,7 @@ type App struct {
 
 	harper *harperState
 
-	ignored    map[string]struct{} // lowercase host (or nick as fallback) → ignored
+	ignored    map[string]string // lowercase host (or nick as fallback) → display nick
 	ignorePath string
 }
 
@@ -187,7 +187,7 @@ func NewApp(cfg Config) (app *App, err error) {
 		shortcuts:          make(map[keyMatch][]string),
 		messageBounds:      map[boundKey]bound{},
 		monitor:            make(map[string]map[string]struct{}),
-		ignored:            make(map[string]struct{}),
+		ignored:            make(map[string]string),
 	}
 	if p, err := DefaultIgnorePath(); err == nil {
 		app.ignorePath = p
@@ -3109,8 +3109,15 @@ func (app *App) loadIgnore() {
 	}
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
-		if line != "" {
-			app.ignored[line] = struct{}{}
+		if line == "" {
+			continue
+		}
+		nick, host, ok := strings.Cut(line, "\t")
+		if !ok {
+			// legacy: line is just host with no nick
+			app.ignored[nick] = nick
+		} else {
+			app.ignored[host] = nick
 		}
 	}
 }
@@ -3119,13 +3126,13 @@ func (app *App) saveIgnore() {
 	if app.ignorePath == "" {
 		return
 	}
-	keys := make([]string, 0, len(app.ignored))
-	for k := range app.ignored {
-		keys = append(keys, k)
+	lines := make([]string, 0, len(app.ignored))
+	for host, nick := range app.ignored {
+		lines = append(lines, nick+"\t"+host)
 	}
-	sort.Strings(keys)
+	sort.Strings(lines)
 	_ = os.MkdirAll(filepath.Dir(app.ignorePath), 0o755)
-	_ = os.WriteFile(app.ignorePath, []byte(strings.Join(keys, "\n")+"\n"), 0o600)
+	_ = os.WriteFile(app.ignorePath, []byte(strings.Join(lines, "\n")+"\n"), 0o600)
 }
 
 // version is set via -ldflags "-X git.sr.ht/~delthas/senpai.version=...".
