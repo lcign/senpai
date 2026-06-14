@@ -627,6 +627,8 @@ func (ui *UI) ClickEditorAt(x, y int) bool {
 	return true
 }
 
+func (ui *UI) MarkEditorDraftable() { ui.e.MarkDraftable() }
+
 func (ui *UI) CopyModeActive() bool     { return ui.bs.copyMode }
 func (ui *UI) EnterCopyMode()           { ui.bs.EnterCopyMode() }
 func (ui *UI) ExitCopyMode()            { ui.bs.ExitCopyMode() }

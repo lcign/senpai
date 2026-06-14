@@ -77,6 +77,10 @@ type Editor struct {
 
 	typos []events.TypoRange
 
+	// draftable is true when the user has typed at least one character manually
+	// (not from paste). Draft() returns "" when false so pasted-only content is
+	// not restored when returning to a buffer.
+	draftable bool
 }
 
 // NewEditor returns a new Editor.
@@ -331,6 +335,7 @@ func (e *Editor) Flush() string {
 	e.typos = nil
 	e.backsearchEnd()
 	e.oldestTextChange = len(e.text) - 1
+	e.draftable = false
 	return content
 }
 
@@ -344,6 +349,7 @@ func (e *Editor) Clear() bool {
 	e.cursorIdx = 0
 	e.offsetIdx = 0
 	e.autoCache = nil
+	e.draftable = false
 	return true
 }
 
@@ -361,10 +367,18 @@ func (e *Editor) Set(text string) {
 	e.backsearchEnd()
 }
 
-// Draft returns the pending input in text[0] (independent of history navigation).
+// Draft returns the pending input in text[0] (independent of history navigation),
+// or "" if the content was set only via paste (not manually typed).
 func (e *Editor) Draft() string {
+	if !e.draftable {
+		return ""
+	}
 	return string(e.text[0].runes)
 }
+
+// MarkDraftable marks the current input as manually typed so it will be saved
+// as a per-buffer draft when switching away.
+func (e *Editor) MarkDraftable() { e.draftable = true }
 
 // RestoreDraft resets history navigation and sets text[0] to s.
 func (e *Editor) RestoreDraft(s string) {
@@ -377,8 +391,10 @@ func (e *Editor) RestoreDraft(s string) {
 		e.textWidth = e.textWidth[:1]
 		e.cursorIdx = 0
 		e.offsetIdx = 0
+		e.draftable = false
 	} else {
 		e.Set(s)
+		e.draftable = true
 	}
 }
 

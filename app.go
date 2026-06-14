@@ -1262,6 +1262,9 @@ func (app *App) handleKeyEvent(ev vaxis.Key) {
 		for _, r := range ev.Text {
 			app.win.InputRune(r)
 		}
+		if ev.EventType != vaxis.EventPaste {
+			app.win.MarkEditorDraftable()
+		}
 		app.typing()
 		app.spellCheck()
 		return
