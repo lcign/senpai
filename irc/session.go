@@ -732,6 +732,14 @@ func (s *Session) UserHost(nick string) string {
 	return ""
 }
 
+// UserMask returns the full nick!ident@host mask of a known user, or just the nick if unknown.
+func (s *Session) UserMask(nick string) string {
+	if u, ok := s.users[s.Casemap(nick)]; ok {
+		return u.Name.String()
+	}
+	return nick
+}
+
 func (s *Session) Whowas(nick string) {
 	s.out <- NewMessage("WHOWAS", nick)
 }

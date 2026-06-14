@@ -1208,11 +1208,13 @@ func commandDoIgnore(app *App, args []string) error {
 			return nil
 		}
 		entries := make([]string, 0, len(app.ignored))
-		for host, nick := range app.ignored {
-			if strings.EqualFold(host, nick) {
+		for key, nick := range app.ignored {
+			if isMaskPattern(key) {
+				entries = append(entries, key)
+			} else if strings.EqualFold(key, nick) {
 				entries = append(entries, nick)
 			} else {
-				entries = append(entries, nick+" ("+host+")")
+				entries = append(entries, nick+" ("+key+")")
 			}
 		}
 		sort.Strings(entries)
@@ -1222,25 +1224,31 @@ func commandDoIgnore(app *App, args []string) error {
 		})
 		return nil
 	}
-	nick := args[0]
-	key := strings.ToLower(nick)
-	if s := app.sessions[netID]; s != nil {
-		if host := s.UserHost(nick); host != "" {
+	arg := args[0]
+	key := strings.ToLower(arg)
+	if isMaskPattern(arg) {
+		// store mask pattern as-is
+	} else if s := app.sessions[netID]; s != nil {
+		if host := s.UserHost(arg); host != "" {
 			key = strings.ToLower(host)
 		}
 	}
 	if _, already := app.ignored[key]; already {
 		app.win.AddLine(netID, buffer, ui.Line{
 			At:   t,
-			Body: ui.PlainSprintf("%s is already ignored.", nick),
+			Body: ui.PlainSprintf("%s is already ignored.", arg),
 		})
 		return nil
 	}
-	app.ignored[key] = nick
+	app.ignored[key] = arg
 	app.saveIgnore()
+	label := arg
+	if !isMaskPattern(key) && !strings.EqualFold(key, arg) {
+		label = arg + " (" + key + ")"
+	}
 	app.win.AddLine(netID, buffer, ui.Line{
 		At:   t,
-		Body: ui.PlainSprintf("Now ignoring %s (%s).", nick, key),
+		Body: ui.PlainSprintf("Now ignoring %s.", label),
 	})
 	return nil
 }
@@ -1248,17 +1256,19 @@ func commandDoIgnore(app *App, args []string) error {
 func commandDoUnignore(app *App, args []string) error {
 	t := time.Now()
 	netID, buffer := app.win.CurrentBuffer()
-	nick := args[0]
-	key := strings.ToLower(nick)
-	if s := app.sessions[netID]; s != nil {
-		if host := s.UserHost(nick); host != "" {
-			key = strings.ToLower(host)
+	arg := args[0]
+	key := strings.ToLower(arg)
+	if !isMaskPattern(arg) {
+		if s := app.sessions[netID]; s != nil {
+			if host := s.UserHost(arg); host != "" {
+				key = strings.ToLower(host)
+			}
 		}
 	}
 	if _, ok := app.ignored[key]; !ok {
 		app.win.AddLine(netID, buffer, ui.Line{
 			At:   t,
-			Body: ui.PlainSprintf("%s is not ignored.", nick),
+			Body: ui.PlainSprintf("%s is not ignored.", arg),
 		})
 		return nil
 	}
@@ -1266,7 +1276,7 @@ func commandDoUnignore(app *App, args []string) error {
 	app.saveIgnore()
 	app.win.AddLine(netID, buffer, ui.Line{
 		At:   t,
-		Body: ui.PlainSprintf("No longer ignoring %s.", nick),
+		Body: ui.PlainSprintf("No longer ignoring %s.", arg),
 	})
 	return nil
 }

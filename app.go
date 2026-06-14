@@ -2670,6 +2670,14 @@ func (app *App) formatMessage(s *irc.Session, ev irc.MessageEvent) (buffer strin
 	} else if _, ok := app.ignored[strings.ToLower(ev.User)]; ok {
 		return
 	}
+	if app.hasIgnorePatterns() {
+		mask := strings.ToLower(s.UserMask(ev.User))
+		for key := range app.ignored {
+			if isMaskPattern(key) && matchMask(key, mask) {
+				return
+			}
+		}
+	}
 	isFromSelf := s.IsMe(ev.User)
 	isToSelf := s.IsMe(ev.Target)
 	isHighlight := ev.TargetIsChannel && app.isHighlight(s, ev.Content)
@@ -3100,6 +3108,51 @@ func dropBackslash(s string) string {
 		esc = false
 	}
 	return sb.String()
+}
+
+func isMaskPattern(s string) bool {
+	return strings.ContainsAny(s, "*?!")
+}
+
+func (app *App) hasIgnorePatterns() bool {
+	for k := range app.ignored {
+		if isMaskPattern(k) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchMask(pattern, target string) bool {
+	return globMatch(strings.ToLower(pattern), strings.ToLower(target))
+}
+
+func globMatch(p, s string) bool {
+	for {
+		if len(p) == 0 {
+			return len(s) == 0
+		}
+		if p[0] == '*' {
+			p = p[1:]
+			if len(p) == 0 {
+				return true
+			}
+			for i := 0; i <= len(s); i++ {
+				if globMatch(p, s[i:]) {
+					return true
+				}
+			}
+			return false
+		}
+		if len(s) == 0 {
+			return false
+		}
+		if p[0] != '?' && p[0] != s[0] {
+			return false
+		}
+		p = p[1:]
+		s = s[1:]
+	}
 }
 
 func (app *App) loadIgnore() {
