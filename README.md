@@ -76,9 +76,20 @@ Clicking a 📄 or 🔗 link opens the content in a full-screen built-in viewer 
 
 ### /ignore
 
-`/ignore <nick>` hides all messages from a user — both channel and private messages. The ignore is keyed on their host/IP, so it persists even if they change nick.  
-`/unignore <nick>` removes them from the ignore list.  
-`/ignore` with no arguments lists all currently ignored users.
+`/ignore <nick>` hides all messages from a user — both channel and private messages. The ignore is keyed on their host/IP, so it persists even if they change nick.
+
+IRC mask patterns are supported:
+
+```
+/ignore *!*@example.com
+/ignore *!*@192.168.*
+/ignore ftpd!f@gentoo/ricer/ftpd
+```
+
+`*` matches any sequence of characters, `?` matches one character.
+
+`/unignore <nick|mask>` removes an entry from the ignore list.  
+`/ignore` with no arguments lists all currently ignored users and masks.
 
 The ignore list is saved to `~/.config/senpai/ignore` and restored on restart.
 
